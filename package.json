@@ -8,9 +8,15 @@
     "start": "next start"
   },
   "dependencies": {
+    "cloudinary": "^2.7.0",
+    "dotenv": "^17.2.1",
+    "lucide-react": "^0.542.0",
+    "mongoos": "^0.0.1-security",
+    "mongoose": "^8.18.0",
+    "next": "15.5.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "next": "15.5.2"
+    "react-hot-toast": "^2.6.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

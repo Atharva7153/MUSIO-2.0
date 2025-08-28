@@ -1,0 +1,58 @@
+node scripts/seed.js
+
+
+// scripts/seed.js
+import mongoose from "mongoose";
+import connectDB from "../lib/connectDB"; // your DB connection file
+import Song from "../models/Song";
+import Playlist from "../models/Playlist";
+
+async function seed() {
+  await connectDB();
+
+  // 1. Create songs manually
+  const song1 = await Song.create({
+    title: "Song One",
+    artist: "Artist One",
+    url: "https://your-cloud-link/song1.mp3",
+    coverImage: "https://your-cloud-link/song1.png",
+  });
+
+  const song2 = await Song.create({
+    title: "Song Two",
+    artist: "Artist Two",
+    url: "https://your-cloud-link/song2.mp3",
+    coverImage: "https://your-cloud-link/song2.png",
+  });
+
+  const song3 = await Song.create({
+    title: "Song Three",
+    artist: "Artist Three",
+    url: "https://your-cloud-link/song3.mp3",
+    coverImage: "https://your-cloud-link/song3.png",
+  });
+
+  console.log("Songs created ✅");
+
+  // 2. Create playlists manually
+  const playlist1 = await Playlist.create({
+    name: "Chill Vibes",
+    coverImage: "https://your-cloud-link/playlist1.png",
+    songs: [song1._id, song2._id],
+  });
+
+  const playlist2 = await Playlist.create({
+    name: "Workout Hits",
+    coverImage: "https://your-cloud-link/playlist2.png",
+    songs: [song2._id, song3._id],
+  });
+
+  console.log("Playlists created ✅");
+
+  process.exit();
+}
+
+seed().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
