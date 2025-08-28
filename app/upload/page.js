@@ -7,51 +7,119 @@ export default function UploadPage() {
   const [playlists, setPlaylists] = useState([]);
   const [useNewPlaylist, setUseNewPlaylist] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [uploadType, setUploadType] = useState("file"); // "file" | "youtube"
+  const [serverAwake, setServerAwake] = useState(false); // track yt-server status
+  const [isWaking, setIsWaking] = useState(false);
+
+  const YT_SERVER = "https://musio-2-0-yt-backend.onrender.com"; // replace with your Render server URL
 
   useEffect(() => {
     fetch("/api/playlists")
-      .then(res => res.json())
-      .then(data => setPlaylists(data.playlists));
+      .then((res) => res.json())
+      .then((data) => setPlaylists(data.playlists));
   }, []);
+
+  // Wake server button functionality
+  const wakeServer = async () => {
+    setIsWaking(true);
+    toast.loading("Waking up YouTube server... please wait");
+    try {
+      const res = await fetch(`${YT_SERVER}/health`);
+      if (res.ok) {
+        setServerAwake(true);
+        toast.dismiss();
+        toast.success("Server is awake! You can upload YouTube songs now.");
+      } else {
+        throw new Error("Failed to wake server");
+      }
+    } catch (err) {
+      toast.dismiss();
+      toast.error(err.message || "Could not wake server");
+    } finally {
+      setIsWaking(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
     const formData = new FormData(e.target);
 
-    const songCover = formData.get("songCover");
-    const playlistId = formData.get("playlistId");
-    const newPlaylistName = formData.get("newPlaylistName");
-    const playlistCover = formData.get("playlistCover");
-
-    // Frontend validation
-    if (!songCover) {
-      toast.error("Please upload a song cover!");
-      setIsLoading(false);
-      return;
-    }
-
-    if (useNewPlaylist && !playlistCover) {
-      toast.error("Please upload a playlist cover!");
-      setIsLoading(false);
-      return;
-    }
-
     try {
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
+      if (uploadType === "youtube") {
+        if (!serverAwake) {
+          toast.error("Please wake up the server first!");
+          setIsLoading(false);
+          return;
+        }
 
-      const data = await res.json();
+        const youtubeUrl = formData.get("youtubeUrl");
+        if (!youtubeUrl) {
+          toast.error("Please enter a YouTube URL!");
+          setIsLoading(false);
+          return;
+        }
 
-      if (data.success) {
-        toast.success("Song uploaded successfully!");
-        e.target.reset();
-        setUseNewPlaylist(false);
+        // Call yt-server to download & upload YouTube song
+        const ytRes = await fetch(`${YT_SERVER}/yt-upload`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: youtubeUrl,
+            title: formData.get("title"),
+            artist: formData.get("artist"),
+            playlistId: formData.get("playlistId"),
+            newPlaylistName: formData.get("newPlaylistName"),
+          }),
+        });
+
+        const ytData = await ytRes.json();
+        if (!ytData.success) {
+          toast.error(ytData.error || "YouTube download failed");
+          setIsLoading(false);
+          return;
+        }
+
+        // Send metadata + Cloudinary URL to Next.js API
+        const payload = {
+          title: formData.get("title"),
+          artist: formData.get("artist"),
+          uploadType: "youtube",
+          youtubeSongUrl: ytData.song.url, // Cloudinary URL from yt-server
+          playlistId: formData.get("playlistId"),
+          newPlaylistName: formData.get("newPlaylistName"),
+        };
+
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          toast.success("Song uploaded from YouTube!");
+          e.target.reset();
+          setUseNewPlaylist(false);
+        } else {
+          toast.error(data.error || "Something went wrong!");
+        }
       } else {
-        toast.error(data.error || "Something went wrong!");
+        // ---- File Upload Flow ----
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          toast.success("Song uploaded successfully!");
+          e.target.reset();
+          setUseNewPlaylist(false);
+        } else {
+          toast.error(data.error || "Something went wrong!");
+        }
       }
     } catch (err) {
       toast.error(err.message || "Server error");
@@ -62,120 +130,135 @@ export default function UploadPage() {
 
   return (
     <div className="upload-page">
-      <Toaster 
+      <Toaster
         position="top-right"
         toastOptions={{
           style: {
-            background: 'rgba(15, 15, 35, 0.95)',
-            color: 'white',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            backdropFilter: 'blur(20px)',
+            background: "rgba(15, 15, 35, 0.95)",
+            color: "white",
+            border: "1px solid rgba(255, 255, 255, 0.1)",
+            backdropFilter: "blur(20px)",
           },
         }}
       />
-      
+
       <div className="upload-container">
         <div className="upload-header">
           <h1 className="upload-title">Upload Music</h1>
-          <p className="upload-subtitle">Share your favorite songs with the world</p>
+          <p className="upload-subtitle">
+            Upload a file or paste a YouTube link
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="upload-form">
-          {/* Song Information Section */}
+          {/* Song Info */}
           <div className="form-section">
-            <h2 className="section-title">
-              <svg className="section-icon" viewBox="0 0 24 24">
-                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-              </svg>
-              Song Information
-            </h2>
-            
+            <h2 className="section-title">Song Information</h2>
             <div className="input-group">
               <label className="input-label">Song Title *</label>
-              <input 
-                type="text" 
-                name="title" 
-                placeholder="Enter song title" 
-                required 
+              <input
+                type="text"
+                name="title"
+                placeholder="Enter song title"
+                required
                 className="text-input"
               />
             </div>
-
             <div className="input-group">
               <label className="input-label">Artist</label>
-              <input 
-                type="text" 
-                name="artist" 
-                placeholder="Enter artist name" 
+              <input
+                type="text"
+                name="artist"
+                placeholder="Enter artist name"
                 className="text-input"
               />
             </div>
           </div>
 
-          {/* File Upload Section */}
+          {/* Upload Method */}
           <div className="form-section">
-            <h2 className="section-title">
-              <svg className="section-icon" viewBox="0 0 24 24">
-                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-              </svg>
-              Upload Files
-            </h2>
-
-            <div className="input-group">
-              <label className="input-label">Song File *</label>
-              <div className="file-input-wrapper">
-                <input 
-                  type="file" 
-                  name="songFile" 
-                  accept="audio/*" 
-                  required 
-                  className="file-input"
-                  id="songFile"
+            <h2 className="section-title">Upload Method</h2>
+            <div className="radio-group">
+              <label>
+                <input
+                  type="radio"
+                  name="uploadType"
+                  value="file"
+                  checked={uploadType === "file"}
+                  onChange={() => setUploadType("file")}
                 />
-                <label htmlFor="songFile" className="file-input-label">
-                  <svg className="file-input-icon" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                  </svg>
-                  Choose audio file (MP3, WAV, etc.)
-                </label>
-              </div>
-            </div>
-
-            <div className="input-group">
-              <label className="input-label">Song Cover Image</label>
-              <div className="file-input-wrapper">
-                <input 
-                  type="file" 
-                  name="songCover" 
-                  accept="image/*" 
-                  className="file-input"
-                  id="songCover"
+                Upload File
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="uploadType"
+                  value="youtube"
+                  checked={uploadType === "youtube"}
+                  onChange={() => setUploadType("youtube")}
                 />
-                <label htmlFor="songCover" className="file-input-label">
-                  <svg className="file-input-icon" viewBox="0 0 24 24">
-                    <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
-                  </svg>
-                  Choose cover image (JPG, PNG, etc.)
-                </label>
-              </div>
+                YouTube Link
+              </label>
             </div>
           </div>
+
+          {uploadType === "file" ? (
+            <>
+              <div className="input-group">
+                <label className="input-label">Song File *</label>
+                <input
+                  type="file"
+                  name="songFile"
+                  accept="audio/*"
+                  className="file-input"
+                />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Song Cover Image</label>
+                <input
+                  type="file"
+                  name="songCover"
+                  accept="image/*"
+                  className="file-input"
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="input-group">
+                <label className="input-label">YouTube URL *</label>
+                <input
+                  type="url"
+                  name="youtubeUrl"
+                  placeholder="Paste YouTube link"
+                  required
+                  className="text-input"
+                />
+              </div>
+
+              {/* Wake Server Button */}
+              {!serverAwake && (
+                <button
+                  type="button"
+                  className={`wake-button ${isWaking ? "loading" : ""}`}
+                  onClick={wakeServer}
+                  disabled={isWaking}
+                >
+                  {isWaking ? "Waking Server..." : "Wake YouTube Server"}
+                </button>
+              )}
+            </>
+          )}
 
           {/* Playlist Section */}
           <div className="form-section">
-            <h2 className="section-title">
-              <svg className="section-icon" viewBox="0 0 24 24">
-                <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18C16.69 14.07 16.35 14 16 14c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/>
-              </svg>
-              Playlist Options
-            </h2>
-
+            <h2 className="section-title">Playlist Options</h2>
             <div className="checkbox-group">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 id="newPlaylist"
                 className="checkbox-input"
-                onChange={() => setUseNewPlaylist(!useNewPlaylist)} 
+                onChange={() => setUseNewPlaylist(!useNewPlaylist)}
               />
               <label htmlFor="newPlaylist" className="checkbox-label">
                 Create New Playlist
@@ -188,51 +271,42 @@ export default function UploadPage() {
                 <select name="playlistId" className="select-input">
                   <option value="">No playlist</option>
                   {playlists.map((pl) => (
-                    <option key={pl._id} value={pl._id}>{pl.name}</option>
+                    <option key={pl._id} value={pl._id}>
+                      {pl.name}
+                    </option>
                   ))}
-                  <option value="new">Create New Playlist</option>
                 </select>
               </div>
             ) : (
               <>
                 <div className="input-group">
                   <label className="input-label">New Playlist Name</label>
-                  <input 
-                    type="text" 
-                    name="newPlaylistName" 
-                    placeholder="Enter playlist name" 
+                  <input
+                    type="text"
+                    name="newPlaylistName"
+                    placeholder="Enter playlist name"
                     className="text-input"
                   />
                 </div>
-
                 <div className="input-group">
                   <label className="input-label">Playlist Cover Image</label>
-                  <div className="file-input-wrapper">
-                    <input 
-                      type="file" 
-                      name="playlistCover" 
-                      accept="image/*" 
-                      className="file-input"
-                      id="playlistCover"
-                    />
-                    <label htmlFor="playlistCover" className="file-input-label">
-                      <svg className="file-input-icon" viewBox="0 0 24 24">
-                        <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
-                      </svg>
-                      Choose playlist cover image
-                    </label>
-                  </div>
+                  <input
+                    type="file"
+                    name="playlistCover"
+                    accept="image/*"
+                    className="file-input"
+                  />
                 </div>
               </>
             )}
           </div>
 
-          <button 
-            type="submit" 
-            className={`submit-button ${isLoading ? 'loading' : ''}`}
+          <button
+            type="submit"
+            className={`submit-button ${isLoading ? "loading" : ""}`}
             disabled={isLoading}
           >
-            {isLoading ? 'Uploading...' : 'Upload Song'}
+            {isLoading ? "Uploading..." : "Upload Song"}
           </button>
         </form>
       </div>
