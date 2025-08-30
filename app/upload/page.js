@@ -122,6 +122,7 @@ export default function UploadPage() {
           <p className="upload-subtitle">
             Upload a file or paste a SoundCloud link
           </p>
+          <p>Make sure to read Instructions for soundcloud</p>
         </div>
 
         <form onSubmit={handleSubmit} className="upload-form">
@@ -222,8 +223,10 @@ export default function UploadPage() {
                 <p className="info-text">
                   ⚠️ Please use full SoundCloud links, not shortened (e.g.
                   use <b>https://soundcloud.com/artist/track</b>, not
-                  <b> https://on.soundcloud.com/xyz</b>)
+                  <b> https://on.soundcloud.com/xyz<br/>
+                  and make sure track is not restricted else download failed</b>)
                 </p>
+                
               )}
 
               {/* Wake button ONLY visible here */}
