@@ -7,11 +7,12 @@ export default function UploadPage() {
   const [playlists, setPlaylists] = useState([]);
   const [useNewPlaylist, setUseNewPlaylist] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [uploadType, setUploadType] = useState("file"); // "file" | "youtube"
-  const [serverAwake, setServerAwake] = useState(false); // track yt-server status
+  const [uploadType, setUploadType] = useState("file"); // "file" | "soundcloud"
+  const [serverAwake, setServerAwake] = useState(false); // track backend status
   const [isWaking, setIsWaking] = useState(false);
+  const [showScInfo, setShowScInfo] = useState(false); // toggle for SC info
 
-  const YT_SERVER = "https://musio-2-0-yt-backend.onrender.com"; // replace with your Render server URL
+  const BACKEND_SERVER = "https://musio-2-0-yt-backend.onrender.com"; // your backend
 
   useEffect(() => {
     fetch("/api/playlists")
@@ -19,16 +20,16 @@ export default function UploadPage() {
       .then((data) => setPlaylists(data.playlists));
   }, []);
 
-  // Wake server button functionality
+  // Wake server button
   const wakeServer = async () => {
     setIsWaking(true);
-    toast.loading("Waking up YouTube server... please wait");
+    toast.loading("Waking up backend server... please wait");
     try {
-      const res = await fetch(`${YT_SERVER}/health`);
+      const res = await fetch(`${BACKEND_SERVER}/health`);
       if (res.ok) {
         setServerAwake(true);
         toast.dismiss();
-        toast.success("Server is awake! You can upload YouTube songs now.");
+        toast.success("Server is awake! You can upload songs now.");
       } else {
         throw new Error("Failed to wake server");
       }
@@ -47,26 +48,19 @@ export default function UploadPage() {
     const formData = new FormData(e.target);
 
     try {
-      if (uploadType === "youtube") {
-        if (!serverAwake) {
-          toast.error("Please wake up the server first!");
+      if (uploadType === "soundcloud") {
+        const scUrl = formData.get("soundcloudUrl");
+        if (!scUrl) {
+          toast.error("Please enter a SoundCloud URL!");
           setIsLoading(false);
           return;
         }
 
-        const youtubeUrl = formData.get("youtubeUrl");
-        if (!youtubeUrl) {
-          toast.error("Please enter a YouTube URL!");
-          setIsLoading(false);
-          return;
-        }
-
-        // Call yt-server to download & upload YouTube song
-        const ytRes = await fetch(`${YT_SERVER}/yt-upload`, {
+        const scRes = await fetch(`${BACKEND_SERVER}/sc-upload`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            url: youtubeUrl,
+            url: scUrl,
             title: formData.get("title"),
             artist: formData.get("artist"),
             playlistId: formData.get("playlistId"),
@@ -74,39 +68,19 @@ export default function UploadPage() {
           }),
         });
 
-        const ytData = await ytRes.json();
-        if (!ytData.success) {
-          toast.error(ytData.error || "YouTube download failed");
+        const scData = await scRes.json();
+        if (!scData.success) {
+          toast.error(scData.error || "SoundCloud download failed");
           setIsLoading(false);
           return;
         }
 
-        // Send metadata + Cloudinary URL to Next.js API
-        const payload = {
-          title: formData.get("title"),
-          artist: formData.get("artist"),
-          uploadType: "youtube",
-          youtubeSongUrl: ytData.song.url, // Cloudinary URL from yt-server
-          playlistId: formData.get("playlistId"),
-          newPlaylistName: formData.get("newPlaylistName"),
-        };
+        toast.success("Song uploaded from SoundCloud!");
+        e.target.reset();
+        setUseNewPlaylist(false);
+      }
 
-        const res = await fetch("/api/upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        const data = await res.json();
-        if (data.success) {
-          toast.success("Song uploaded from YouTube!");
-          e.target.reset();
-          setUseNewPlaylist(false);
-        } else {
-          toast.error(data.error || "Something went wrong!");
-        }
-      } else {
-        // ---- File Upload Flow ----
+      if (uploadType === "file") {
         const res = await fetch("/api/upload", {
           method: "POST",
           body: formData,
@@ -146,7 +120,7 @@ export default function UploadPage() {
         <div className="upload-header">
           <h1 className="upload-title">Upload Music</h1>
           <p className="upload-subtitle">
-            Upload a file or paste a YouTube link
+            Upload a file or paste a SoundCloud link
           </p>
         </div>
 
@@ -193,16 +167,16 @@ export default function UploadPage() {
                 <input
                   type="radio"
                   name="uploadType"
-                  value="youtube"
-                  checked={uploadType === "youtube"}
-                  onChange={() => setUploadType("youtube")}
+                  value="soundcloud"
+                  checked={uploadType === "soundcloud"}
+                  onChange={() => setUploadType("soundcloud")}
                 />
-                YouTube Link
+                SoundCloud Link
               </label>
             </div>
           </div>
 
-          {uploadType === "file" ? (
+          {uploadType === "file" && (
             <>
               <div className="input-group">
                 <label className="input-label">Song File *</label>
@@ -223,20 +197,36 @@ export default function UploadPage() {
                 />
               </div>
             </>
-          ) : (
-            <>
-              <div className="input-group">
-                <label className="input-label">YouTube URL *</label>
-                <input
-                  type="url"
-                  name="youtubeUrl"
-                  placeholder="Paste YouTube link"
-                  required
-                  className="text-input"
-                />
-              </div>
+          )}
 
-              {/* Wake Server Button */}
+          {uploadType === "soundcloud" && (
+            <div className="input-group">
+              <label className="input-label">SoundCloud URL *</label>
+              <input
+                type="url"
+                name="soundcloudUrl"
+                placeholder="Paste SoundCloud link"
+                required
+                className="text-input"
+              />
+
+              {/* Info Button */}
+              <button
+                type="button"
+                className="info-button"
+                onClick={() => setShowScInfo(!showScInfo)}
+              >
+                {showScInfo ? "Hide Instructions" : "SoundCloud Link Rules"}
+              </button>
+              {showScInfo && (
+                <p className="info-text">
+                  ⚠️ Please use full SoundCloud links, not shortened (e.g.
+                  use <b>https://soundcloud.com/artist/track</b>, not
+                  <b> https://on.soundcloud.com/xyz</b>)
+                </p>
+              )}
+
+              {/* Wake button ONLY visible here */}
               {!serverAwake && (
                 <button
                   type="button"
@@ -244,10 +234,10 @@ export default function UploadPage() {
                   onClick={wakeServer}
                   disabled={isWaking}
                 >
-                  {isWaking ? "Waking Server..." : "Wake YouTube Server"}
+                  {isWaking ? "Waking Server..." : "Wake Backend Server"}
                 </button>
               )}
-            </>
+            </div>
           )}
 
           {/* Playlist Section */}
