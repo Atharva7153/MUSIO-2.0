@@ -7,17 +7,40 @@ export default function UploadPage() {
   const [playlists, setPlaylists] = useState([]);
   const [useNewPlaylist, setUseNewPlaylist] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [uploadType, setUploadType] = useState("file"); // "file" | "soundcloud"
-  const [serverAwake, setServerAwake] = useState(false); // track backend status
+  const [uploadType, setUploadType] = useState("file"); // "file" | "youtube"
+  const [serverAwake, setServerAwake] = useState(false);
   const [isWaking, setIsWaking] = useState(false);
-  const [showScInfo, setShowScInfo] = useState(false); // toggle for SC info
+  const [cookieStatus, setCookieStatus] = useState("Checking..."); // 👈 added
 
-  const BACKEND_SERVER = "https://musio-2-0-yt-backend.onrender.com"; // your backend
+  const BACKEND_SERVER = "https://musio-2-0-yt-backend-1.onrender.com"; // your backend
 
   useEffect(() => {
     fetch("/api/playlists")
       .then((res) => res.json())
       .then((data) => setPlaylists(data.playlists));
+  }, []);
+
+  // 👇 fetch cookie expiry once
+  useEffect(() => {
+    const fetchCookieExpiry = async () => {
+      try {
+        const res = await fetch(`${BACKEND_SERVER}/cookie-expiry`);
+        const data = await res.json();
+        if (data.expiresAt) {
+          const expiryDate = new Date(data.expiresAt);
+          if (expiryDate < new Date()) {
+            setCookieStatus(`⚠️ Expired on ${expiryDate.toLocaleString()}`);
+          } else {
+            setCookieStatus(`✅ Valid until ${expiryDate.toLocaleString()}`);
+          }
+        } else {
+          setCookieStatus("No cookie expiry info found");
+        }
+      } catch (err) {
+        setCookieStatus("⚠️ Could not fetch cookie expiry");
+      }
+    };
+    fetchCookieExpiry();
   }, []);
 
   // Wake server button
@@ -48,19 +71,19 @@ export default function UploadPage() {
     const formData = new FormData(e.target);
 
     try {
-      if (uploadType === "soundcloud") {
-        const scUrl = formData.get("soundcloudUrl");
-        if (!scUrl) {
-          toast.error("Please enter a SoundCloud URL!");
+      if (uploadType === "youtube") {
+        const ytUrl = formData.get("youtubeUrl");
+        if (!ytUrl) {
+          toast.error("Please enter a YouTube URL!");
           setIsLoading(false);
           return;
         }
 
-        const scRes = await fetch(`${BACKEND_SERVER}/sc-upload`, {
+        const ytRes = await fetch(`${BACKEND_SERVER}/yt-upload`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            url: scUrl,
+            url: ytUrl,
             title: formData.get("title"),
             artist: formData.get("artist"),
             playlistId: formData.get("playlistId"),
@@ -68,14 +91,14 @@ export default function UploadPage() {
           }),
         });
 
-        const scData = await scRes.json();
-        if (!scData.success) {
-          toast.error(scData.error || "SoundCloud download failed");
+        const ytData = await ytRes.json();
+        if (!ytData.success) {
+          toast.error(ytData.error || "YouTube download failed");
           setIsLoading(false);
           return;
         }
 
-        toast.success("Song uploaded from SoundCloud!");
+        toast.success("Song uploaded from YouTube!");
         e.target.reset();
         setUseNewPlaylist(false);
       }
@@ -120,9 +143,10 @@ export default function UploadPage() {
         <div className="upload-header">
           <h1 className="upload-title">Upload Music</h1>
           <p className="upload-subtitle">
-            Upload a file or paste a SoundCloud link
+            Upload a file or paste a YouTube link
           </p>
-          <p>Make sure to read Instructions for soundcloud</p>
+          {/* 👇 Cookie expiry status */}
+          <p className="cookie-expiry">{cookieStatus}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="upload-form">
@@ -168,11 +192,11 @@ export default function UploadPage() {
                 <input
                   type="radio"
                   name="uploadType"
-                  value="soundcloud"
-                  checked={uploadType === "soundcloud"}
-                  onChange={() => setUploadType("soundcloud")}
+                  value="youtube"
+                  checked={uploadType === "youtube"}
+                  onChange={() => setUploadType("youtube")}
                 />
-                SoundCloud Link
+                YouTube Link
               </label>
             </div>
           </div>
@@ -200,34 +224,16 @@ export default function UploadPage() {
             </>
           )}
 
-          {uploadType === "soundcloud" && (
+          {uploadType === "youtube" && (
             <div className="input-group">
-              <label className="input-label">SoundCloud URL *</label>
+              <label className="input-label">YouTube URL *</label>
               <input
                 type="url"
-                name="soundcloudUrl"
-                placeholder="Paste SoundCloud link"
+                name="youtubeUrl"
+                placeholder="Paste YouTube link"
                 required
                 className="text-input"
               />
-
-              {/* Info Button */}
-              <button
-                type="button"
-                className="info-button"
-                onClick={() => setShowScInfo(!showScInfo)}
-              >
-                {showScInfo ? "Hide Instructions" : "SoundCloud Link Rules"}
-              </button>
-              {showScInfo && (
-                <p className="info-text">
-                  ⚠️ Please use full SoundCloud links, not shortened (e.g.
-                  use <b>https://soundcloud.com/artist/track</b>, not
-                  <b> https://on.soundcloud.com/xyz<br/>
-                  and make sure track is not restricted else download failed</b>)
-                </p>
-                
-              )}
 
               {/* Wake button ONLY visible here */}
               {!serverAwake && (

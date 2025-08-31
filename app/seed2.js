@@ -50,18 +50,18 @@ async function addSongsToPlaylist(playlistName, songsData) {
 (async () => {
   await addSongsToPlaylist("Atharva's Playlist", [
     {
-      title: "Last Son",
-      artist: "Superman 2025",
-      url: "https://res.cloudinary.com/di64iiq19/video/upload/v1756435226/Superman_Soundtrack_Last_Son_-_David_Fleming_WaterTower_Music_bnj8hq.mp3",
-      coverImage: "https://res.cloudinary.com/di64iiq19/image/upload/v1756435306/Screenshot_2025-08-29_080943_tfdlbb.png",
+      title: "Shaky",
+      artist: "Sanju Rathod",
+      url: "https://res.cloudinary.com/di64iiq19/video/upload/v1756611665/Shaky_Official_Video_Sanju_Rathod_Ft._Isha_Malviya_G-Spark_New_Marathi_Songs_2025_oukqm1.mp3",
+      coverImage: "https://res.cloudinary.com/di64iiq19/image/upload/v1756611655/Screenshot_2025-08-31_091012_mmfvpo.png",
     },
     {
-      title: "Come and Get your Love",
-      artist: "Redbone",
-      url: "https://res.cloudinary.com/di64iiq19/video/upload/v1756435225/Redbone_-_Come_and_Get_Your_Love_Single_Edit_-_Audio_pmplm8.mp3",
-      coverImage: "https://res.cloudinary.com/di64iiq19/image/upload/v1756435306/Screenshot_2025-08-29_080920_yornvq.png"
+      title: "O Rangrez",
+      artist: "Javed Bashir, Shreya Goshal",
+      url: "https://res.cloudinary.com/di64iiq19/video/upload/v1756611671/O_Rangrez_-_Lyrcial_Video_Bhaag_Milkha_Bhaag_Farhan_Sonam_Shreya_Ghoshal_Javed_Bashir_tvbbl2.mp3",
+      coverImage: "https://res.cloudinary.com/di64iiq19/image/upload/v1756611654/Screenshot_2025-08-31_090935_dwuynn.png"
     }
   ]);
 
-  process.exit();
+  process.exit()
 })();

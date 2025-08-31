@@ -51,24 +51,24 @@ async function createPlaylistWithSongs(playlistData, songsData) {
 (async () => {
   await createPlaylistWithSongs(
     {
-      name: "Ai Songs",
+      name: "Uzaif's Playlists",
       coverImage:
-        "https://res.cloudinary.com/di64iiq19/image/upload/v1756402885/Screenshot_2025-08-28_231104_zm2n24.png",
+        "https://res.cloudinary.com/di64iiq19/image/upload/v1756609936/Screenshot_2025-08-31_084122_ndyfo0.png",
     },
     [
       {
-        title: "Mamu Mamu",
-        artist: "Suno Ai",
-        url: "https://res.cloudinary.com/di64iiq19/video/upload/v1756402977/Mamu_nzydlu.mp3",
+        title: "Shape of You",
+        artist: "Ed Sheeran",
+        url: "https://res.cloudinary.com/di64iiq19/video/upload/v1756609932/Ed_Sheeran_-_Shape_of_You_Official_Music_Video_kysplw.mp3",
         coverImage:
-          "https://res.cloudinary.com/di64iiq19/image/upload/v1756402951/Screenshot_2025-08-28_231220_f8ukdm.png",
+          "https://res.cloudinary.com/di64iiq19/image/upload/v1756609936/Screenshot_2025-08-31_084122_ndyfo0.png",
       },
       {
-        title: "Vibe Trip",
-        artist: "Suno Ai",
-        url: "https://res.cloudinary.com/di64iiq19/video/upload/v1756402978/VibeTrip_owzzdq.mp3",
+        title: "Unstoppable",
+        artist: "Sia",
+        url: "https://res.cloudinary.com/di64iiq19/video/upload/v1756609929/Sia_-_Unstoppable_Lyrics_jtz08y.mp3",
         coverImage:
-          "https://res.cloudinary.com/di64iiq19/image/upload/v1756402951/Screenshot_2025-08-28_231220_f8ukdm.png",
+          "https://res.cloudinary.com/di64iiq19/image/upload/v1756609936/Screenshot_2025-08-31_084140_vzbsdn.png",
       },
     ]
   );
