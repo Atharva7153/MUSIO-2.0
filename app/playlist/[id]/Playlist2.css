@@ -2,14 +2,17 @@
 .playlist-page {
   min-height: 350vh;
   background: linear-gradient(135deg, 
-  #0f2027 0%,   /* deep midnight */
-  #2c5364 15%,  /* teal-blue */
-  #203a43 30%,  /* ocean green */
-  #6a0572 50%,  /* royal purple */
-  #b33f62 65%,  /* warm pink-red */
-  #ff6f61 80%,  /* coral orange */
-  #fddb92 100%  /* golden sunlight */
+    #00a8ff,  /* cold blue */
+    #9c88ff,  /* cold purple */
+    #667eea,  /* soft indigo */
+    #ff6b6b,  /* warm red */
+    #fbc531,  /* warm yellow */
+    #f093fb,  /* warm pink */
+    #00a8ff   /* wrap-around cold blue */
 );
+
+  background-size: 400% 400%;
+  animation: diagonalGradient 120s linear infinite; /* slow moving gradient */
   color: white;
   font-family: 'Poppins', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   padding: 2rem 2rem 6rem 2rem;
@@ -25,6 +28,14 @@
     radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.1) 0%, transparent 50%),
     radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.05) 0%, transparent 50%);
   pointer-events: none;
+}
+
+@keyframes diagonalGradient {
+  0% { background-position: 0% 0%; }
+  25% { background-position: 50% 50%; }
+  50% { background-position: 100% 100%; }
+  75% { background-position: 50% 50%; }
+  100% { background-position: 0% 0%; }
 }
 
 .playlist-container {
@@ -93,21 +104,20 @@
 .playlist-title {
   font-size: clamp(2rem, 5vw, 3.5rem);
   font-weight: 800;
-  background: linear-gradient(270deg, #ff6a00, #ee0979, #764ba2, #667eea, #00c6ff, #ff6a00);
+  background: linear-gradient(270deg, #00a8ff, #4cd137, #9c88ff, #ff6b6b, #fbc531, #f093fb, #00a8ff);
   background-size: 1000% 1000%;
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   margin-bottom: 0.5rem;
   line-height: 1.2;
-  animation: gradientMove 10s linear infinite;
+  animation: gradientMove 20s linear infinite; /* slow gradient for title too */
 }
 
 @keyframes gradientMove {
   0% { background-position: 0% 50%; }
   100% { background-position: 100% 50%; }
 }
-
 
 .playlist-meta {
   display: flex;

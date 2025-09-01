@@ -25,6 +25,7 @@ export default function Playbar() {
   const [duration, setDuration] = useState(0);
   const [timerMinutes, setTimerMinutes] = useState(30); // default 30 min
   const [showSleepTimer, setShowSleepTimer] = useState(false); // popup toggle
+  const [isDragging, setIsDragging] = useState(false);
 
   const currentSong = playlist[currentIndex];
 
@@ -35,13 +36,40 @@ export default function Playbar() {
     }
   }, [isPlaying, currentIndex]);
 
-  const handleTimeUpdate = () => setCurrentTime(audioRef.current.currentTime);
+  const handleTimeUpdate = () => {
+    if (!isDragging) setCurrentTime(audioRef.current.currentTime);
+  };
   const handleLoadedMetadata = () => setDuration(audioRef.current.duration);
-  const handleSeek = (e) => {
-    const progress = e.nativeEvent.offsetX / e.target.clientWidth;
+
+  // Seek handlers for dragging
+  const handleSeekStart = (e) => {
+    setIsDragging(true);
+    handleSeekMove(e);
+  };
+
+  const handleSeekMove = (e) => {
+    if (!isDragging) return;
+    const rect = e.target.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    let progress = (clientX - rect.left) / rect.width;
+    progress = Math.max(0, Math.min(1, progress));
+    setCurrentTime(progress * duration);
+  };
+
+  const handleSeekEnd = (e) => {
+    if (!isDragging) return;
+    handleSeekMove(e);
+    audioRef.current.currentTime = currentTime;
+    setIsDragging(false);
+  };
+
+  const handleSeekClick = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const progress = (e.clientX - rect.left) / rect.width;
     audioRef.current.currentTime = progress * duration;
     setCurrentTime(progress * duration);
   };
+
   const formatTime = (secs) => {
     if (isNaN(secs)) return "0:00";
     const minutes = Math.floor(secs / 60);
@@ -60,12 +88,19 @@ export default function Playbar() {
         <span className="time-display">{formatTime(currentTime)}</span>
         <div
           className="progress-container"
-          onClick={handleSeek}
           role="progressbar"
           aria-label="Song progress"
           aria-valuenow={currentTime}
           aria-valuemin={0}
           aria-valuemax={duration}
+          onMouseDown={handleSeekStart}
+          onMouseMove={handleSeekMove}
+          onMouseUp={handleSeekEnd}
+          onMouseLeave={handleSeekEnd}
+          onTouchStart={handleSeekStart}
+          onTouchMove={handleSeekMove}
+          onTouchEnd={handleSeekEnd}
+          onClick={handleSeekClick} // still allow click
         >
           <div
             className="progress-bar"
@@ -150,7 +185,6 @@ export default function Playbar() {
             </svg>
           </button>
 
-          {/* Popup Input */}
           {showSleepTimer && (
             <div
               style={{
@@ -230,7 +264,7 @@ export default function Playbar() {
           style={{
             position: "absolute",
             bottom: "5px",
-            right : "10px",
+            right: "10px",
             fontSize: "0.85rem",
             color: "#fff",
             background: "rgba(0,0,0,0.4)",

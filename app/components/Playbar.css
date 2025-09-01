@@ -96,7 +96,8 @@
 }
 
 .control-button.active {
-  background: linear-gradient(135deg, #ff6ec7, #f5576c, #4facfe);
+  /* background: linear-gradient(135deg, #ff6ec7, #f5576c, #4facfe); */
+  background: linear-gradient(135deg, #5202ff, #ff019a, #ffa200);
   background-size: 200% 200%;
   animation: gradientShift 4s ease infinite;
   color: #fff;
@@ -106,7 +107,7 @@
 .play-pause-button {
   width: 3.25rem;
   height: 3.25rem;
-  background: linear-gradient(135deg, #ff6ec7, #f093fb, #667eea);
+  background: linear-gradient(135deg, #e3018d, #f093fb, #1037e5);
   background-size: 200% 200%;
   animation: gradientShift 3s ease infinite;
   color: white;
@@ -116,7 +117,7 @@
 
 .play-pause-button:hover {
   transform: scale(1.1);
-  box-shadow: 0 12px 28px rgba(255, 110, 199, 0.6);
+  box-shadow: 0 12px 28px rgba(255, 1, 1, 0.6);
 }
 
 /* Icons */

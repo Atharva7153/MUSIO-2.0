@@ -1,202 +1,163 @@
-/* --- Full Page Setup --- */
+/* Full Page Setup */
 .homepage {
   position: relative;
   min-height: 100vh;
   overflow-x: hidden;
-  background: #0a0a0a;
-  color: #f5f5f5;
-  font-family: 'Poppins', 'Inter', sans-serif;
+  background: #0f0f0f;
+  color: white;
+  font-family: 'Poppins', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-/* --- Animated Aurora Background --- */
+/* Animated Diagonal Gradient Background */
 .animated-background {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background: radial-gradient(ellipse at top left, #111, #000);
-  overflow: hidden;
+ background: linear-gradient(135deg, 
+    #00a8ff,  /* cold blue */
+    #4cd137,  /* cold green */
+    #9c88ff,  /* cold purple */
+    #6ab04c,  /* cold lime green */
+    #ff6b6b,  /* warm red */
+    #f093fb,  /* warm pink */
+    #fbc531,  /* warm yellow */
+    #e1b12c,  /* warm gold */
+    #00a8ff,  /* wrap-around cold blue */
+    #9c88ff,  /* wrap-around cold purple */
+    #ff6b6b   /* wrap-around warm red */
+);
+  background-size: 700% 700%;
+  animation: diagonalGradient 60s linear infinite;
+  opacity: 0.85;
+  pointer-events: none;
 }
 
-.animated-background::before,
-.animated-background::after {
-  content: '';
-  position: absolute;
-  inset: -50%;
-  background: conic-gradient(
-    from 0deg,
-    rgba(0, 200, 255, 0.25),  /* bright cyan */
-    rgba(180, 100, 255, 0.25), /* bright violet */
-    rgba(255, 80, 200, 0.25),  /* magenta */
-    rgba(255, 200, 80, 0.25),  /* gold */
-    rgba(0, 255, 160, 0.25),   /* teal green */
-    transparent
-  );
-  animation: spin 40s linear infinite;
-  border-radius: 50%;
-}
-
-.animated-background::after {
-  animation-direction: reverse;
-  opacity: 0.8;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg) scale(1.2); }
-  100% { transform: rotate(360deg) scale(1.2); }
-}
-
-/* --- Content Layer --- */
+/* Content Layer */
 .content {
   position: relative;
   z-index: 10;
-  padding: 32px 24px 6rem 24px;
+  padding: 24px 24px 6rem 24px;
 }
 
-/* --- Title --- */
+/* Title */
 .title {
-  font-size: 2.5rem;
-  font-weight: 900;
-  margin-bottom: 32px;
-  letter-spacing: -0.5px;
-  background: linear-gradient(90deg, #7dd3fc, #c084fc, #f472b6, #facc15);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  text-shadow: 0 0 14px rgba(200, 150, 255, 0.35);
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 24px;
+  color: #f0f0f0;
 }
 
-/* --- Playlist Grid (Desktop Default) --- */
+/* Scrollable Playlist Container */
+.scroll-container {
+  overflow-x: auto;
+  padding-bottom: 10px;
+}
+
+/* Playlist Grid with 2 Rows */
 .playlist-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 28px;
-  padding-bottom: 40px;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(2, auto);
+  gap: 16px;
+  min-height: 340px;
 }
 
-/* --- Playlist Card --- */
+/* Individual Playlist Card */
 .playlist-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  transition: transform 0.35s ease, box-shadow 0.35s ease;
+  padding: 20px;
+  width: 220px;
   cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
 }
 
 .playlist-card:hover {
-  transform: translateY(-8px) scale(1.02);
-  box-shadow: 0 8px 24px rgba(200, 150, 255, 0.35);
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.35);
 }
 
-/* --- Playlist Image --- */
+/* Playlist Image */
 .playlist-image {
   width: 100%;
-  height: 180px;
+  height: 140px;
   object-fit: cover;
-  border-radius: 16px 16px 0 0;
-  transition: transform 0.35s ease;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
 }
 
 .playlist-card:hover .playlist-image {
   transform: scale(1.05);
 }
 
-/* --- Text Info --- */
-.playlist-info {
-  text-align: center;
-  padding: 12px 10px;
-}
-
+/* Playlist Name */
 .playlist-name {
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: 700;
-  color: #fff;
+  color: white;
   margin-bottom: 6px;
-  text-overflow: ellipsis;
   white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
 }
 
+/* Song Count */
 .playlist-count {
-  font-size: 0.85rem;
-  color: rgba(255, 240, 220, 0.9);
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-/* --- Watermark --- */
+.playlist-count::before {
+  content: '🎵';
+  font-size: 0.8rem;
+}
+
+/* Watermark */
 .watermark {
+  position: relative;
   text-align: center;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   margin-top: 40px;
-  color: rgba(200, 200, 200, 0.5);
-  letter-spacing: 2px;
-  text-transform: uppercase;
+  padding-bottom: 16px;
+  color: rgba(255, 255, 255, 0.4);
 }
 
-/* --- Responsive: Vertical Mode --- */
+/* Diagonal Gradient Animation */
+@keyframes diagonalGradient {
+  0% { background-position: 0% 0%; }
+  25% { background-position: 50% 50%; }
+  50% { background-position: 100% 100%; }
+  75% { background-position: 50% 50%; }
+  100% { background-position: 0% 0%; }
+}
+
+/* Responsive Design */
 @media (max-width: 768px) {
-  .title {
-    font-size: 2rem;
-    margin-bottom: 24px;
-  }
-
-  .playlist-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-  }
-
-  .playlist-card {
-    width: 67%;             /* not full bleed, nice margin */
-    margin: 0 auto;          /* center the card */
-    border-radius: 20px;
-  }
-
-  .playlist-image {
-    height: 260px;           /* taller image */
-    border-radius: 20px 20px 0 0;
-  }
-
-  .playlist-info {
-    padding: 16px 14px;
-  }
-
-  .playlist-name {
-    font-size: 1.2rem;
-  }
-
-  .playlist-count {
-    font-size: 1rem;
-  }
+  .content { padding: 16px 16px 5rem 16px; }
+  .title { font-size: 1.75rem; margin-bottom: 20px; }
+  .playlist-card { width: 200px; padding: 16px; }
+  .playlist-image { height: 120px; }
+  .playlist-name { font-size: 1rem; }
+  .playlist-count { font-size: 0.8rem; }
 }
 
 @media (max-width: 480px) {
-  .title {
-    font-size: 1.6rem;
-    margin-bottom: 20px;
-  }
-
-  .playlist-card {
-    width: 67%;             /* slightly more margin on tiny screens */
-  }
-
-  .playlist-image {
-    height: 240px;           /* still tall */
-    border-radius: 18px 18px 0 0;
-  }
-
-  .playlist-info {
-    padding: 16px 14px;
-  }
-
-  .playlist-name {
-    font-size: 1.15rem;
-  }
-
-  .playlist-count {
-    font-size: 0.95rem;
-  }
+  .content { padding: 12px 12px 4.5rem 12px; }
+  .title { font-size: 1.5rem; margin-bottom: 16px; }
+  .playlist-card { width: 180px; padding: 12px; }
+  .playlist-image { height: 100px; }
+  .playlist-name { font-size: 0.9rem; }
+  .playlist-count { font-size: 0.75rem; }
+  .watermark { font-size: 0.75rem; margin-top: 24px; }
 }
