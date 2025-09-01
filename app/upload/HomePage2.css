@@ -155,7 +155,7 @@
 @media (max-width: 480px) {
   .content { padding: 12px 12px 4.5rem 12px; }
   .title { font-size: 1.5rem; margin-bottom: 16px; }
-  .playlist-card { width: 180px; padding: 12px; }
+  .playlist-card { width: 167px; padding: 12px; }
   .playlist-image { height: 100px; }
   .playlist-name { font-size: 0.9rem; }
   .playlist-count { font-size: 0.75rem; }
