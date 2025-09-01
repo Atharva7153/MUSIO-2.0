@@ -11,6 +11,10 @@ export function PlayerProvider({ children }) {
   const [isShuffling, setIsShuffling] = useState(false);
   const [shuffleQueue, setShuffleQueue] = useState([]);
 
+  // Sleep timer states
+  const [sleepTimer, setSleepTimer] = useState(null); // minutes
+  const [sleepTimeoutId, setSleepTimeoutId] = useState(null);
+
   const createShuffleQueue = (length, excludeIndex) => {
     const indices = Array.from({ length }, (_, i) => i).filter(i => i !== excludeIndex);
     for (let i = indices.length - 1; i > 0; i--) {
@@ -35,7 +39,6 @@ export function PlayerProvider({ children }) {
 
     if (isShuffling) {
       if (shuffleQueue.length === 0) {
-        // reshuffle
         setShuffleQueue(createShuffleQueue(playlist.length, currentIndex));
       }
 
@@ -58,7 +61,6 @@ export function PlayerProvider({ children }) {
     if (playlist.length === 0) return;
 
     if (isShuffling) {
-      // For simplicity, in shuffle mode prev just picks random (optional: implement shuffle history)
       const prevIndex = Math.floor(Math.random() * playlist.length);
       setCurrentIndex(prevIndex);
     } else {
@@ -90,6 +92,25 @@ export function PlayerProvider({ children }) {
     });
   };
 
+  // --- Sleep Timer Functions ---
+  const startSleepTimer = (minutes) => {
+    cancelSleepTimer(); // clear existing
+    const id = setTimeout(() => {
+      setIsPlaying(false);
+      setSleepTimer(null);
+      setSleepTimeoutId(null);
+    }, minutes * 60 * 1000);
+
+    setSleepTimer(minutes);
+    setSleepTimeoutId(id);
+  };
+
+  const cancelSleepTimer = () => {
+    if (sleepTimeoutId) clearTimeout(sleepTimeoutId);
+    setSleepTimer(null);
+    setSleepTimeoutId(null);
+  };
+
   return (
     <PlayerContext.Provider
       value={{
@@ -104,6 +125,9 @@ export function PlayerProvider({ children }) {
         setIsLooping: toggleLoop,
         isShuffling,
         setIsShuffling: toggleShuffle,
+        sleepTimer,
+        startSleepTimer,
+        cancelSleepTimer,
       }}
     >
       {children}
