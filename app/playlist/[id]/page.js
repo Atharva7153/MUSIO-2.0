@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { usePlayer } from "../../context/PlayerContext";
-import "./PlaylistPage.css";
+import "./Playlist2.css";
 
 export default function PlaylistPage() {
   const { id } = useParams();

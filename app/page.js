@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import "./styles/Homepage.css"; // Import the CSS file
+import "./upload/HomePage2.css"; // Import the CSS file
 
 export default function HomePage() {
   const [playlists, setPlaylists] = useState([]);
@@ -10,6 +10,7 @@ export default function HomePage() {
     fetch("/api/playlists")
       .then((res) => res.json())
       .then((data) => setPlaylists(data.playlists));
+      
   }, []);
 
   return (

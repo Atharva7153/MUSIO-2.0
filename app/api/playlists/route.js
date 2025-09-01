@@ -8,5 +8,5 @@ import Song from "../../models/Song";
 export async function GET() {
   await connectDB();
   const playlists = await Playlist.find().populate("songs");
-  return NextResponse.json({ playlists });
+  return NextResponse.json({ playlists});
 }

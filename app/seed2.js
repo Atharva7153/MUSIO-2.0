@@ -48,20 +48,20 @@ async function addSongsToPlaylist(playlistName, songsData) {
 
 // Example usage
 (async () => {
-  await addSongsToPlaylist("Atharva's Playlist", [
-    {
-      title: "Shaky",
-      artist: "Sanju Rathod",
-      url: "https://res.cloudinary.com/di64iiq19/video/upload/v1756611665/Shaky_Official_Video_Sanju_Rathod_Ft._Isha_Malviya_G-Spark_New_Marathi_Songs_2025_oukqm1.mp3",
-      coverImage: "https://res.cloudinary.com/di64iiq19/image/upload/v1756611655/Screenshot_2025-08-31_091012_mmfvpo.png",
-    },
-    {
-      title: "O Rangrez",
-      artist: "Javed Bashir, Shreya Goshal",
-      url: "https://res.cloudinary.com/di64iiq19/video/upload/v1756611671/O_Rangrez_-_Lyrcial_Video_Bhaag_Milkha_Bhaag_Farhan_Sonam_Shreya_Ghoshal_Javed_Bashir_tvbbl2.mp3",
-      coverImage: "https://res.cloudinary.com/di64iiq19/image/upload/v1756611654/Screenshot_2025-08-31_090935_dwuynn.png"
-    }
-  ]);
+  await addSongsToPlaylist("Atharva's Playlist", 
+    [
+  
+  {
+    title: "O mahi",
+    artist: "Arjit Singh",
+    url: "https://res.cloudinary.com/di64iiq19/video/upload/v1756692860/SpotiDownloader.com_-_O_Maahi_From__Dunki__-_Pritam_ydecd3.mp3",
+    coverImage: "https://res.cloudinary.com/di64iiq19/image/upload/v1756692861/Cover_of_O_Maahi_From__Dunki__by_Pritam_Arijit_Singh_Irshad_Kamil_yvbfuh.jpg",
+  },
+  
+]
+
+
+  );
 
   process.exit()
 })();
