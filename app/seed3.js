@@ -41,8 +41,8 @@ async function addSongsToPlaylist(playlistName, songTitles) {
 
 // Example usage
 (async () => {
-  await addSongsToPlaylist("Atharva's Playlist", [
-    "Alag Aasmaan",
+  await addSongsToPlaylist("Uzaif's Playlists", [
+    "Pal Pal",
     
   ]);
 

@@ -95,6 +95,7 @@
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.4);
 }
 
+
 .control-button.active {
   /* background: linear-gradient(135deg, #ff6ec7, #f5576c, #4facfe); */
   background: linear-gradient(135deg, #5202ff, #ff019a, #ffa200);
