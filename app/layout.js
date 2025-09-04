@@ -17,6 +17,9 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "MUSIO 2.0",
   description: "A ad free music player",
+   icons: {
+    icon: "/lo.svg", // can also be .png or .svg
+  },
 };
 
 export default function RootLayout({ children }) {
