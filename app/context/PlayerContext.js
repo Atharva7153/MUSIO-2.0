@@ -111,6 +111,29 @@ export function PlayerProvider({ children }) {
     setSleepTimeoutId(null);
   };
 
+  // --- Media Session API Integration ---
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+    if (!playlist.length || currentIndex === -1) return;
+
+    const currentSong = playlist[currentIndex];
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: currentSong.title,
+      artist: currentSong.artist || "Unknown Artist",
+      album: currentSong.album || "",
+      artwork: [
+        { src: currentSong.coverImage || "/default-song.png", sizes: "512x512", type: "image/png" }
+      ]
+    });
+
+    navigator.mediaSession.setActionHandler('play', () => setIsPlaying(true));
+    navigator.mediaSession.setActionHandler('pause', () => setIsPlaying(false));
+    navigator.mediaSession.setActionHandler('previoustrack', prevSong);
+    navigator.mediaSession.setActionHandler('nexttrack', nextSong);
+
+  }, [playlist, currentIndex, isPlaying]);
+
   return (
     <PlayerContext.Provider
       value={{
