@@ -23,8 +23,7 @@ export default function HomePage() {
           
           {playlists.length === 0 ? (
             <div className="empty-state">
-              <h3>No playlists yet</h3>
-              <p>Create your first playlist to get started!</p>
+              <h3>Loading </h3>
             </div>
           ) : (
             <div className="scroll-container">
