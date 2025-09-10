@@ -70,8 +70,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Watermark */}
-      <div className="watermark">Made by Atharva Sharma</div>
+      
     </div>
   );
 }

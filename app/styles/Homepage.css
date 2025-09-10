@@ -124,7 +124,8 @@
 }
 
 .stat-item:hover {
-  transform: translateY(-5px);
+  transform: rotateX(10deg) rotateY(10deg) translateY(-5px);
+  box-shadow: 0 0px 30px rgb(0, 192, 245);
 }
 
 .stat-number {
