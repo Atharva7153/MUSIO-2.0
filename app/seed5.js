@@ -8,21 +8,27 @@ cloudinary.config({
   api_secret: "bkGAtmnVcDMWq3ppNosmszXIE3I"
 });
 
-// Tags
-const songTag = "A-playlist";
-const artTag = "A-art";
+// Song Tag
+const songTag = "H-gym";
 
-// Fetch resources by tag
-async function getResourcesByTag(tag, resourceType) {
+// Fetch resources
+async function getResources(resourceType, tag = null) {
   let resources = [];
   let nextCursor = null;
 
   do {
-    const res = await cloudinary.api.resources_by_tag(tag, {
-      resource_type: resourceType,
-      max_results: 500,
-      next_cursor: nextCursor
-    });
+    const res = tag
+      ? await cloudinary.api.resources_by_tag(tag, {
+          resource_type: resourceType,
+          max_results: 500,
+          next_cursor: nextCursor
+        })
+      : await cloudinary.api.resources({
+          resource_type: resourceType,
+          type: "upload",
+          max_results: 500,
+          next_cursor: nextCursor
+        });
 
     resources = resources.concat(res.resources);
     nextCursor = res.next_cursor;
@@ -33,18 +39,20 @@ async function getResourcesByTag(tag, resourceType) {
 
 async function generatePlaylistJSON() {
   try {
-    // Get songs and artworks
-    const songs = await getResourcesByTag(songTag, "video"); // mp3s are video
-    const artworks = await getResourcesByTag(artTag, "image"); // artworks are images
+    // Get songs by tag
+    const songs = await getResources("video", songTag);
+
+    // Get artworks (all images, no tag filter)
+    const artworks = await getResources("image");
 
     console.log(`🎵 Found ${songs.length} songs and ${artworks.length} artworks`);
 
     // Generate JSON
     const playlist = songs.map((song, index) => ({
-      title: "", // empty
-      artist: "", // empty
+      title: "", // you can parse from filename if you want
+      artist: "",
       url: song.secure_url,
-      coverImage: artworks[index] ? artworks[index].secure_url : "" // match by index
+      coverImage: ""
     }));
 
     // Write to file

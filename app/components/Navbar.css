@@ -47,6 +47,11 @@
   }
 }
 
+.navbar-logo {
+  transition: transform 0.1s ease;
+}
+
+
 .navbar-logo:hover {
   transform: scale(1.05);
 }
