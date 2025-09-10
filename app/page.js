@@ -50,7 +50,7 @@ export default function HomePage() {
         <div className="hero-section">
           <div className="hero-content">
             <h1 className="title">Musio 2.0</h1>
-            <p className="subtitle">Best Alternative to SPOTIFY and better than MUSIO 1.0</p>
+            <p className="subtitle">--BY Atharva Sharma</p>
             
             <div className="hero-stats">
               <div className="stat-item">
