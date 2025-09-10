@@ -66,7 +66,7 @@ const Navbar = () => {
       <Link href="/">
         <h1 className="navbar-logo">MUSIO 2.0</h1>
       </Link>
-      <h1>1.12v</h1>
+      <h1>1.13v</h1>
 
       {/* Right Side Navigation */}
       <div className="navbar-right">

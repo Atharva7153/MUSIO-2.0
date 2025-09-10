@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import "./upload/HomePage2.css"; // Import the CSS file
+import "./styles/Homepage.css"; // Import the new CSS file
 
 export default function HomePage() {
   const [playlists, setPlaylists] = useState([]);
@@ -15,28 +15,58 @@ export default function HomePage() {
 
   return (
     <div className="homepage">
-      {/* Animated Background */}
-      <div className="animated-background"></div>
-
       {/* Main Content */}
       <div className="content">
-        <h1 className="title">All Playlists</h1>
+        {/* Playlist Section */}
+        <div className="playlist-section">
+          <h2 className="section-title">Your Playlists</h2>
+          
+          {playlists.length === 0 ? (
+            <div className="empty-state">
+              <h3>No playlists yet</h3>
+              <p>Create your first playlist to get started!</p>
+            </div>
+          ) : (
+            <div className="scroll-container">
+              <div className="playlist-grid">
+                {playlists.map((pl) => (
+                  <Link key={pl._id} href={`/playlist/${pl._id}`}>
+                    <div className="playlist-card">
+                      <img
+                        src={pl.coverImage || "/default-playlist.png"}
+                        alt={pl.name}
+                        className="playlist-image"
+                      />
+                      <h3 className="playlist-name">{pl.name}</h3>
+                      <p className="playlist-count">{pl.songs.length} songs</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
-        <div className="scroll-container">
-          <div className="playlist-grid">
-            {playlists.map((pl) => (
-              <Link key={pl._id} href={`/playlist/${pl._id}`}>
-                <div className="playlist-card">
-                  <img
-                    src={pl.coverImage || "/default-playlist.png"}
-                    alt={pl.name}
-                    className="playlist-image"
-                  />
-                  <h2 className="playlist-name">{pl.name}</h2>
-                  <p className="playlist-count">{pl.songs.length} songs</p>
-                </div>
-              </Link>
-            ))}
+        {/* Stats Section */}
+        <div className="hero-section">
+          <div className="hero-content">
+            <h1 className="title">Musio 2.0</h1>
+            <p className="subtitle">Best Alternative to SPOTIFY and better than MUSIO 1.0</p>
+            
+            <div className="hero-stats">
+              <div className="stat-item">
+                <span className="stat-number">{playlists.length}</span>
+                <span className="stat-label">Playlists</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-number">{playlists.reduce((total, pl) => total + pl.songs.length, 0)}</span>
+                <span className="stat-label">Total Songs</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-number">∞</span>
+                <span className="stat-label">Possibilities</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
