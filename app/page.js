@@ -175,6 +175,77 @@ export default function HomePage() {
             )}
           </section>
 
+          {/* Discovery Preview Section */}
+          <section className="discovery-preview-section">
+            <div className="section-header">
+              <h2 className="section-title">
+                <svg viewBox="0 0 24 24" style={{ width: '24px', height: '24px', marginRight: '8px' }}>
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                </svg>
+                Discover New Music
+              </h2>
+              <Link href="/discover" className="view-all-link">
+                Explore All
+                <svg viewBox="0 0 24 24">
+                  <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
+                </svg>
+              </Link>
+            </div>
+            
+            <div className="discovery-categories">
+              <Link href="/discover?type=trending" className="discovery-card trending">
+                <div className="discovery-icon">
+                  <svg viewBox="0 0 24 24">
+                    <path d="16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/>
+                  </svg>
+                </div>
+                <div className="discovery-content">
+                  <h3>Trending Now</h3>
+                  <p>What everyone's listening to</p>
+                </div>
+                <div className="discovery-arrow">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
+                  </svg>
+                </div>
+              </Link>
+              
+              <Link href="/discover?type=genre&genre=pop" className="discovery-card genres">
+                <div className="discovery-icon">
+                  <svg viewBox="0 0 24 24">
+                    <path d="12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                  </svg>
+                </div>
+                <div className="discovery-content">
+                  <h3>Explore Genres</h3>
+                  <p>Find music by style</p>
+                </div>
+                <div className="discovery-arrow">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
+                  </svg>
+                </div>
+              </Link>
+              
+              <Link href="/discover" className="discovery-card smart">
+                <div className="discovery-icon">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                  </svg>
+                </div>
+                <div className="discovery-content">
+                  <h3>Smart Recommendations</h3>
+                  <p>Personalized for you</p>
+                </div>
+                <div className="discovery-arrow">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
+                  </svg>
+                </div>
+              </Link>
+            </div>
+          </section>
+
           {/* Playlists Section */}
           <section className="playlists-section">
             <div className="section-header">

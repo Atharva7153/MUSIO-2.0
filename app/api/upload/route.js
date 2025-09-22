@@ -41,6 +41,7 @@ export async function POST(req) {
     // Song data
     const title = formData.get("title");
     const artist = formData.get("artist");
+    const genre = formData.get("genre");
     const playlistId = formData.get("playlistId"); // "existing" or "new"
     const newPlaylistName = formData.get("newPlaylistName");
 
@@ -68,6 +69,7 @@ export async function POST(req) {
     const newSong = await Song.create({
       title,
       artist,
+      genre: genre || 'Unknown',
       url: songUpload?.secure_url,
       coverImage: songCoverUrl,
     });

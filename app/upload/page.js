@@ -86,6 +86,7 @@ export default function UploadPage() {
             url: ytUrl,
             title: formData.get("title"),
             artist: formData.get("artist"),
+            genre: formData.get("genre"),
             playlistId: formData.get("playlistId"),
             newPlaylistName: formData.get("newPlaylistName"),
           }),
@@ -171,6 +172,27 @@ export default function UploadPage() {
                 placeholder="Enter artist name"
                 className="text-input"
               />
+            </div>
+            <div className="input-group">
+              <label className="input-label">Genre</label>
+              <select name="genre" className="text-input">
+                <option value="">Select genre (optional)</option>
+                <option value="pop">Pop</option>
+                <option value="rock">Rock</option>
+                <option value="hip hop">Hip Hop</option>
+                <option value="electronic">Electronic</option>
+                <option value="indie">Indie</option>
+                <option value="jazz">Jazz</option>
+                <option value="classical">Classical</option>
+                <option value="country">Country</option>
+                <option value="r&b">R&B</option>
+                <option value="alternative">Alternative</option>
+                <option value="folk">Folk</option>
+                <option value="metal">Metal</option>
+                <option value="reggae">Reggae</option>
+                <option value="blues">Blues</option>
+                <option value="other">Other</option>
+              </select>
             </div>
           </div>
 

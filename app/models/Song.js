@@ -5,6 +5,10 @@ const SongSchema = new mongoose.Schema({
     artist : {type : String, required : true},
     url : {type : String, required : true},
     coverImage : {type : String},
+    genre : {type : String, default : 'Unknown'},
+    duration : {type : Number}, // in seconds
+    playCount : {type : Number, default : 0},
+    likes : {type : Number, default : 0}
 }, {timestamps : true})
 
 

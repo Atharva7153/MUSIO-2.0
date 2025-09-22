@@ -273,6 +273,126 @@
   stroke-linejoin: round;
 }
 
+/* Discovery Preview Section */
+.discovery-preview-section {
+  margin-bottom: 4rem;
+}
+
+.discovery-categories {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.discovery-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 2rem;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.discovery-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, var(--primary) 0%, #8b5cf6 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 1;
+}
+
+.discovery-card:hover::before {
+  opacity: 0.05;
+}
+
+.discovery-card:hover {
+  transform: translateY(-8px);
+  box-shadow: var(--shadow-xl);
+  border-color: var(--primary);
+}
+
+.discovery-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+}
+
+.discovery-card.trending .discovery-icon {
+  background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+  color: white;
+}
+
+.discovery-card.genres .discovery-icon {
+  background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+  color: white;
+}
+
+.discovery-card.smart .discovery-icon {
+  background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+  color: white;
+}
+
+.discovery-icon svg {
+  width: 28px;
+  height: 28px;
+  fill: currentColor;
+}
+
+.discovery-content {
+  flex: 1;
+  position: relative;
+  z-index: 2;
+}
+
+.discovery-content h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.discovery-content p {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.discovery-arrow {
+  color: var(--text-secondary);
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 2;
+}
+
+.discovery-card:hover .discovery-arrow {
+  color: var(--primary);
+  transform: translateX(4px);
+}
+
+.discovery-arrow svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
 /* Songs Grid */
 .songs-grid {
   display: grid;
