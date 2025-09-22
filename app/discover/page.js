@@ -169,7 +169,7 @@ export default function DiscoverPage() {
   }
   
   return (
-    <div className="discover-page">
+    <div className="discover-page page-content">
       <div className="discover-header">
         <h1>Discover Music</h1>
         <p>Personalized recommendations just for you</p>

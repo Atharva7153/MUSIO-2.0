@@ -46,7 +46,7 @@ export default function HomePage() {
     // SplashScreen will show until minDuration passes AND isLoading becomes false.
     // tweak minDuration or remove waitFor prop to always show fixed duration splash.
     <SplashScreen waitFor={isLoading} minDuration={1800}>
-      <div className="homepage">
+      <div className="homepage page-content">
         {/* Hero Section */}
         <section className="hero-section">
           <div className="hero-background">

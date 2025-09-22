@@ -127,7 +127,7 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="upload-page">
+    <div className="upload-page page-content">
       <Toaster
         position="top-right"
         toastOptions={{

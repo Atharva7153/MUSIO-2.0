@@ -37,7 +37,7 @@ export default function PlaylistsPage() {
   };
 
   return (
-    <div className="playlists-page">
+    <div className="playlists-page page-content">
       <div className="playlists-container">
         {/* Header */}
         <div className="page-header">

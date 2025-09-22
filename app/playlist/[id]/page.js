@@ -42,7 +42,7 @@ export default function PlaylistPage() {
 
   if (isLoading) {
     return (
-      <div className="playlist-page">
+      <div className="playlist-page page-content">
         <div className="loading-state">
           <div className="loading-spinner"></div>
           Loading playlist...
@@ -53,7 +53,7 @@ export default function PlaylistPage() {
 
   if (!playlist) {
     return (
-      <div className="playlist-page">
+      <div className="playlist-page page-content">
         <div className="playlist-container">
           <div className="empty-state">
             <div className="empty-icon">
@@ -73,7 +73,7 @@ export default function PlaylistPage() {
   }
 
   return (
-    <div className="playlist-page">
+    <div className="playlist-page page-content">
       <div className="playlist-container">
         {/* Playlist Header */}
         <div className="playlist-header">

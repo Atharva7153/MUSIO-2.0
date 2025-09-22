@@ -78,6 +78,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+  padding-bottom: 120px; /* Space for fixed playbar */
 }
 
 /* Custom scrollbar */
@@ -183,11 +184,29 @@ body {
 @media (max-width: 768px) {
   body {
     font-size: 14px;
+    padding-bottom: 140px; /* More space on mobile */
   }
 }
 
 @media (max-width: 480px) {
   body {
     font-size: 13px;
+    padding-bottom: 160px; /* Even more space on small screens */
   }
+}
+
+/* Page content wrapper to ensure proper spacing */
+.page-content {
+  min-height: 100vh;
+  padding-bottom: 2rem;
+}
+
+/* Ensure scrollable content doesn't get hidden behind playbar */
+main {
+  padding-bottom: 2rem;
+}
+
+/* Fix for pages that might have their own containers */
+.container {
+  margin-bottom: 2rem;
 }
