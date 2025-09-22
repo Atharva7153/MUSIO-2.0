@@ -59,7 +59,7 @@ export default function HomePage() {
                 Welcome to <span className="gradient-text">MUSIO 2.0</span>
               </h1>
               <p className="hero-subtitle">
-                Your personal music universe, reimagined with cutting-edge design and seamless experience
+                ---bby Atharva Sharma
               </p>
               <div className="hero-actions">
                 <Link href="/upload" className="cta-button primary">
