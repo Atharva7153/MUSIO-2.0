@@ -15,10 +15,32 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "MUSIO 2.0",
-  description: "A ad free music player",
-   icons: {
-    icon: "/lo.svg", // can also be .png or .svg
+  title: "MUSIO 2.0 - Modern Music Player",
+  description: "Experience music like never before with MUSIO 2.0 - a modern, ad-free music player with advanced features, beautiful design, and seamless user experience.",
+  keywords: "music player, streaming, playlist, audio, music, MUSIO, modern, ad-free",
+  authors: [{ name: "Atharva Sharma" }],
+  icons: {
+    icon: "/lo.svg",
+    apple: "/lo.svg",
+  },
+  openGraph: {
+    title: "MUSIO 2.0 - Modern Music Player",
+    description: "Experience music like never before with MUSIO 2.0 - a modern, ad-free music player with advanced features, beautiful design, and seamless user experience.",
+    type: "website",
+    images: [
+      {
+        url: "/music-player.png",
+        width: 1200,
+        height: 630,
+        alt: "MUSIO 2.0 Music Player",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "MUSIO 2.0 - Modern Music Player",
+    description: "Experience music like never before with MUSIO 2.0 - a modern, ad-free music player with advanced features, beautiful design, and seamless user experience.",
+    images: ["/music-player.png"],
   },
 };
 

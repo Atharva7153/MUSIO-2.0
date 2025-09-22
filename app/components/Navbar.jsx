@@ -9,6 +9,8 @@ const Navbar = () => {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [isSearchActive, setIsSearchActive] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const router = useRouter();
   const { playSong } = usePlayer();
   const searchRef = useRef(null);
@@ -46,6 +48,12 @@ const Navbar = () => {
     }
   };
 
+  // Dark mode toggle
+  const toggleDarkMode = () => {
+    setIsDarkMode(!isDarkMode);
+    document.documentElement.classList.toggle('dark');
+  };
+
   // Close dropdown if clicked outside
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -60,17 +68,43 @@ const Navbar = () => {
     };
   }, []);
 
+  // Check for system dark mode preference
+  useEffect(() => {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    setIsDarkMode(prefersDark);
+    if (prefersDark) {
+      document.documentElement.classList.add('dark');
+    }
+  }, []);
+
   return (
     <nav className="navbar">
-      {/* Logo */}
-      <Link href="/">
-        <h1 className="navbar-logo">MUSIO 2.0</h1>
-      </Link>
-      <h1>1.13v</h1>
+      {/* Mobile Menu Button */}
+      <button 
+        className="mobile-menu-button"
+        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        aria-label="Toggle mobile menu"
+      >
+        <svg className="hamburger-icon" viewBox="0 0 24 24">
+          <path d="M3 12h18M3 6h18M3 18h18"/>
+        </svg>
+      </button>
 
-      {/* Right Side Navigation */}
-      <div className="navbar-right">
-        {/* Navigation Menu */}
+      {/* Logo */}
+      <Link href="/" className="navbar-logo-container">
+        <div className="logo-icon">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+          </svg>
+        </div>
+        <div className="logo-text">
+          <h1 className="navbar-logo">MUSIO</h1>
+          <span className="version-badge">2.0</span>
+        </div>
+      </Link>
+
+      {/* Desktop Navigation */}
+      <div className="navbar-center">
         <div className="navbar-menu">
           <Link href="/" className="navbar-link">
             <svg className="navbar-icon" viewBox="0 0 24 24">
@@ -84,8 +118,17 @@ const Navbar = () => {
             </svg>
             <span>Upload</span>
           </Link>
+          <Link href="/playlists" className="navbar-link">
+            <svg className="navbar-icon" viewBox="0 0 24 24">
+              <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/>
+            </svg>
+            <span>Playlists</span>
+          </Link>
         </div>
+      </div>
 
+      {/* Right Side Navigation */}
+      <div className="navbar-right">
         {/* Search Container */}
         <div className="search-container" ref={searchRef}>
           <button 
@@ -103,7 +146,7 @@ const Navbar = () => {
             type="text"
             value={query}
             onChange={handleSearch}
-            placeholder="Search songs..."
+            placeholder="Search songs, artists..."
             className={`search-input ${isSearchActive ? 'active' : ''}`}
           />
 
@@ -130,7 +173,63 @@ const Navbar = () => {
             </div>
           )}
         </div>
+
+        {/* Dark Mode Toggle */}
+        <button 
+          className="theme-toggle"
+          onClick={toggleDarkMode}
+          aria-label="Toggle dark mode"
+        >
+          {isDarkMode ? (
+            <svg className="theme-icon" viewBox="0 0 24 24">
+              <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>
+            </svg>
+          ) : (
+            <svg className="theme-icon" viewBox="0 0 24 24">
+              <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/>
+            </svg>
+          )}
+        </button>
       </div>
+
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div className="mobile-menu-overlay">
+          <div className="mobile-menu">
+            <div className="mobile-menu-header">
+              <h2>Menu</h2>
+              <button 
+                className="close-button"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <svg viewBox="0 0 24 24">
+                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+              </button>
+            </div>
+            <div className="mobile-menu-links">
+              <Link href="/" className="mobile-link" onClick={() => setIsMobileMenuOpen(false)}>
+                <svg viewBox="0 0 24 24">
+                  <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+                </svg>
+                <span>Home</span>
+              </Link>
+              <Link href="/upload" className="mobile-link" onClick={() => setIsMobileMenuOpen(false)}>
+                <svg viewBox="0 0 24 24">
+                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+                <span>Upload</span>
+              </Link>
+              <Link href="/playlists" className="mobile-link" onClick={() => setIsMobileMenuOpen(false)}>
+                <svg viewBox="0 0 24 24">
+                  <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/>
+                </svg>
+                <span>Playlists</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </nav>
   );
 };
