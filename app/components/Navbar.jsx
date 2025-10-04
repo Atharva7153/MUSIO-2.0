@@ -11,29 +11,112 @@ const Navbar = () => {
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const router = useRouter();
   const { playSong } = usePlayer();
   const searchRef = useRef(null);
   const searchInputRef = useRef(null);
+  const mobileSearchInputRef = useRef(null);
+  const searchTimeout = useRef(null);
 
   const handleSearch = async (e) => {
-    setQuery(e.target.value);
+    const searchValue = e.target.value;
+    setQuery(searchValue);
+    setIsSearchActive(true);
 
-    if (e.target.value.length === 0) {
+    if (searchValue.length === 0) {
       setResults([]);
+      setIsSearching(false);
       return;
     }
 
-    const res = await fetch(`/api/songs/search?query=${e.target.value}`);
-    const data = await res.json();
-    setResults(data.songs || []);
+    // Clear previous timeout
+    if (searchTimeout.current) {
+      clearTimeout(searchTimeout.current);
+    }
+
+    // Set searching state
+    setIsSearching(true);
+    
+    // Debounce the search to avoid too many requests
+    searchTimeout.current = setTimeout(async () => {
+      try {
+        // Create a custom AbortController to timeout the fetch if it takes too long
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+        
+        const res = await fetch(`/api/songs/search?query=${encodeURIComponent(searchValue)}`, {
+          headers: {
+            'Accept': 'application/json'
+          },
+          signal: controller.signal
+        });
+        
+        // Clear the timeout since fetch completed
+        clearTimeout(timeoutId);
+        
+        if (!res.ok) {
+          console.error(`Search API error: ${res.status}`);
+          setResults([]);
+          return;
+        }
+        
+        // Parse response as JSON
+        const data = await res.json();
+        
+        // Validate the response structure
+        if (data && Array.isArray(data.songs)) {
+          setResults(data.songs);
+        } else {
+          console.warn('Unexpected data structure from API:', data);
+          setResults([]);
+        }
+      } catch (error) {
+        // Handle abort errors differently
+        if (error.name === 'AbortError') {
+          console.warn('Search request timed out');
+        } else {
+          console.error('Error searching songs:', error);
+        }
+        setResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300); // Wait 300ms after user stops typing
   };
 
-  const handleSongClick = (song) => {
-    playSong([song], 0);
-    setResults([]);
-    setQuery("");
-    setIsSearchActive(false);
+  const handleSongClick = (song, closeMobileMenu = false) => {
+    try {
+      // Validate the song object has required fields
+      if (!song || !song.url) {
+        console.error("Invalid song object:", song);
+        return;
+      }
+      
+      // Make sure the song is properly formatted for playback
+      const songToPlay = {
+        ...song,
+        _id: song._id || `temp-${Date.now()}`, // Ensure there's always an ID
+        title: song.title || "Unknown Title",
+        artist: song.artist || "Unknown Artist",
+        coverImage: song.coverImage || "/music-player.png",
+      };
+      
+      // Play the song
+      playSong([songToPlay], 0);
+      
+      // Clear search UI
+      setResults([]);
+      setQuery("");
+      setIsSearchActive(false);
+      
+      // Close mobile menu if requested
+      if (closeMobileMenu) {
+        setIsMobileMenuOpen(false);
+      }
+    } catch (error) {
+      console.error("Error playing song:", error);
+    }
   };
 
   const toggleSearch = () => {
@@ -67,6 +150,16 @@ const Navbar = () => {
       document.removeEventListener("click", handleClickOutside);
     };
   }, []);
+  
+  // Focus mobile search input when mobile menu opens
+  useEffect(() => {
+    if (isMobileMenuOpen && mobileSearchInputRef.current) {
+      // Short delay to ensure the menu is visible
+      setTimeout(() => {
+        mobileSearchInputRef.current?.focus();
+      }, 300);
+    }
+  }, [isMobileMenuOpen]);
 
   // Check for system dark mode preference
   useEffect(() => {
@@ -157,25 +250,53 @@ const Navbar = () => {
           />
 
           {/* Search results dropdown */}
-          {results.length > 0 && isSearchActive && (
-            <div className="search-results">
-              {results.map((song) => (
-                <div
-                  key={song._id}
-                  onClick={() => handleSongClick(song)}
-                  className="search-result-item"
-                >
-                  <img
-                    src={song.coverImage || "/default-song.png"}
-                    alt={song.title}
-                    className="search-result-image"
-                  />
-                  <div className="search-result-content">
-                    <span className="search-result-title">{song.title}</span>
-                    <span className="search-result-artist">{song.artist}</span>
-                  </div>
+          {isSearchActive && query.length > 0 && (
+            <div className="search-results" data-testid="search-results">
+              {isSearching ? (
+                <div className="search-loading">
+                  <div className="search-spinner"></div>
+                  <p>Searching songs...</p>
                 </div>
-              ))}
+              ) : results.length > 0 ? (
+                results.map((song) => {
+                  if (!song || !song.url) return null;
+                  return (
+                    <div
+                      key={song._id || `temp-${song.title}-${song.artist}`}
+                      onClick={() => handleSongClick(song, false)}
+                      className="search-result-item"
+                      data-testid={`search-result-${song._id}`}
+                    >
+                      <img
+                        src={song.coverImage || "/music-player.png"}
+                        alt={song.title || "Music"}
+                        className="search-result-image"
+                        onError={(e) => {e.target.src = "/music-player.png"}}
+                      />
+                      <div className="search-result-content">
+                        <span className="search-result-title">{song.title || "Unknown Title"}</span>
+                        <span className="search-result-artist">{song.artist || "Unknown Artist"}</span>
+                      </div>
+                      <button 
+                        className="play-icon-button" 
+                        aria-label={`Play ${song.title || 'song'}`}
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent double firing of click events
+                          handleSongClick(song, false);
+                        }}
+                      >
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M8 5v14l11-7z"/>
+                        </svg>
+                      </button>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="search-no-results">
+                  <p>No songs found matching "{query}"</p>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -213,6 +334,77 @@ const Navbar = () => {
                 </svg>
               </button>
             </div>
+            
+            {/* Mobile Search Bar */}
+            <div className="mobile-search-container">
+              <div className="mobile-search-input-wrapper">
+                <svg className="mobile-search-icon" viewBox="0 0 24 24">
+                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                </svg>
+                <input
+                  ref={mobileSearchInputRef}
+                  type="text"
+                  value={query}
+                  onChange={handleSearch}
+                  placeholder="Search songs, artists..."
+                  className="mobile-search-input"
+                  autoComplete="off"
+                  aria-label="Search for songs and artists"
+                />
+                {query && (
+                  <button 
+                    className="mobile-search-clear" 
+                    onClick={() => {
+                      setQuery("");
+                      setResults([]);
+                    }}
+                  >
+                    <svg viewBox="0 0 24 24">
+                      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                  </button>
+                )}
+              </div>
+              
+              {/* Mobile Search Results */}
+              {query.length > 0 && (
+                <div className="mobile-search-results">
+                  {isSearching ? (
+                    <div className="search-loading">
+                      <div className="search-spinner"></div>
+                      <p>Searching songs...</p>
+                    </div>
+                  ) : results.length > 0 ? (
+                    results.map((song) => {
+                      if (!song || !song.url) return null;
+                      return (
+                        <div
+                          key={song._id || `temp-${song.title}-${song.artist}`}
+                          onClick={() => handleSongClick(song, true)}
+                          className="mobile-search-result-item"
+                        >
+                          <img
+                            src={song.coverImage || "/music-player.png"}
+                            alt={song.title || "Music"}
+                            className="mobile-search-result-image"
+                            onError={(e) => {e.target.src = "/music-player.png"}}
+                          />
+                          <div className="mobile-search-result-content">
+                            <span className="mobile-search-result-title">{song.title || "Unknown Title"}</span>
+                            <span className="mobile-search-result-artist">{song.artist || "Unknown Artist"}</span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="mobile-search-no-results">
+                      <p>No songs found matching "{query}"</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="mobile-menu-links">
               <Link href="/" className="mobile-link" onClick={() => setIsMobileMenuOpen(false)}>
                 <svg viewBox="0 0 24 24">
@@ -232,6 +424,36 @@ const Navbar = () => {
                 </svg>
                 <span>Playlists</span>
               </Link>
+              <Link href="/discover" className="mobile-link" onClick={() => setIsMobileMenuOpen(false)}>
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                <span>Discover</span>
+              </Link>
+              
+              {/* Dark Mode Toggle in Mobile Menu */}
+              <button 
+                className="mobile-link mobile-theme-toggle"
+                onClick={() => {
+                  toggleDarkMode();
+                }}
+              >
+                {isDarkMode ? (
+                  <>
+                    <svg viewBox="0 0 24 24">
+                      <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>
+                    </svg>
+                    <span>Light Mode</span>
+                  </>
+                ) : (
+                  <>
+                    <svg viewBox="0 0 24 24">
+                      <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1z"/>
+                    </svg>
+                    <span>Dark Mode</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

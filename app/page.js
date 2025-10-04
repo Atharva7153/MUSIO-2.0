@@ -19,9 +19,19 @@ export default function HomePage() {
           fetch("/api/songs/all"),
         ]);
 
+        // Guard against HTML responses (e.g., 502/maintenance page) by checking content-type
+        const parseJsonSafe = async (res) => {
+          const contentType = res.headers.get('content-type') || '';
+          if (!contentType.includes('application/json')) {
+            const text = await res.text().catch(() => '<unreadable body>');
+            throw new Error(`Expected JSON but received non-JSON response (status ${res.status}): ${text.slice(0,200)}`);
+          }
+          return res.json();
+        };
+
         const [playlistsData, songsData] = await Promise.all([
-          playlistsRes.json(),
-          songsRes.json(),
+          parseJsonSafe(playlistsRes),
+          parseJsonSafe(songsRes),
         ]);
 
         setPlaylists(playlistsData.playlists || []);

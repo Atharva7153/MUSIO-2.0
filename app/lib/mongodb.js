@@ -2,10 +2,16 @@ import mongoose from "mongoose";
 import dotenv from "dotenv"
 
 dotenv.config()
-const MONGODB_URI = process.env.MONGO_URI;
+// Accept either MONGO_URI (used in this project) or the common MONGODB_URI
+const MONGODB_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
 
 if (!MONGODB_URI) {
-  throw new Error("❌ Please define the MONGO_URI environment variable");
+  throw new Error(
+    "❌ Please define the MONGO_URI (or MONGODB_URI) environment variable.\n" +
+      "Create a .env file in the project root with:\n" +
+      "MONGO_URI=your_mongodb_connection_string\n" +
+      "Then restart the dev server (npm run dev)."
+  );
 }
 
 let cached = global.mongoose;

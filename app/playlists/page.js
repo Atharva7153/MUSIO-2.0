@@ -14,6 +14,11 @@ export default function PlaylistsPage() {
     const fetchPlaylists = async () => {
       try {
         const res = await fetch("/api/playlists");
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          const text = await res.text().catch(() => '<unreadable body>');
+          throw new Error(`Expected JSON but received non-JSON response (status ${res.status}): ${text.slice(0,200)}`);
+        }
         const data = await res.json();
         setPlaylists(data.playlists || []);
         setIsLoading(false);

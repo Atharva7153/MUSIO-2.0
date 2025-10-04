@@ -1,0 +1,126 @@
+.upload-progress-container {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.upload-progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.upload-file-name {
+  font-weight: 500;
+  max-width: 70%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.upload-progress-percentage {
+  font-weight: 600;
+  color: var(--primary, #4f46e5);
+}
+
+.upload-progress-bar-container {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.upload-progress-bar {
+  height: 100%;
+  background: var(--primary, #4f46e5);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.upload-progress-status {
+  font-size: 0.85rem;
+  color: var(--muted-foreground, #64748b);
+  text-align: center;
+}
+
+.upload-progress-note {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(59, 130, 246, 0.1);
+  border-left: 3px solid #3b82f6;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--foreground, #1e293b);
+  text-align: left;
+}
+
+/* Status-specific styles */
+.progress-complete .upload-progress-bar {
+  background: #10b981; /* Green for success */
+}
+
+.progress-complete .upload-progress-percentage {
+  color: #10b981;
+}
+
+.progress-error .upload-progress-bar {
+  background: #ef4444; /* Red for error */
+}
+
+.progress-error .upload-progress-percentage {
+  color: #ef4444;
+}
+
+.progress-processing .upload-progress-bar {
+  background: #f59e0b; /* Amber for processing */
+  background-image: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.15) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.15) 50%,
+    rgba(255, 255, 255, 0.15) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 1rem 1rem;
+  animation: progress-bar-stripes 1s linear infinite;
+}
+
+.progress-processing .upload-progress-percentage {
+  color: #f59e0b;
+}
+
+/* Animation for processing state */
+@keyframes progress-bar-stripes {
+  0% {
+    background-position: 1rem 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+
+/* Dark mode adjustments */
+.dark .upload-progress-container {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dark .upload-progress-bar-container {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.dark .upload-progress-status {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.dark .upload-progress-note {
+  background: rgba(59, 130, 246, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+}

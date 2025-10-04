@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import toast, { Toaster } from "react-hot-toast";
+import { safeFetch } from "../lib/safeFetch";
+import UploadProgressBar from "./UploadProgressBar";
 import "./UploadPage.css";
 
 export default function UploadPage() {
@@ -11,21 +13,33 @@ export default function UploadPage() {
   const [serverAwake, setServerAwake] = useState(false);
   const [isWaking, setIsWaking] = useState(false);
   const [cookieStatus, setCookieStatus] = useState("Checking..."); // 👈 added
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState('');
+  const [uploadFileName, setUploadFileName] = useState('');
 
   const BACKEND_SERVER = "https://musio-2-0-yt-backend-1.onrender.com"; // your backend
 
   useEffect(() => {
+    const parseJsonSafe = async (res) => {
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await res.text().catch(() => '<unreadable body>');
+        throw new Error(`Expected JSON but received non-JSON response (status ${res.status}): ${text.slice(0,200)}`);
+      }
+      return res.json();
+    };
+
     fetch("/api/playlists")
-      .then((res) => res.json())
-      .then((data) => setPlaylists(data.playlists));
+      .then((res) => parseJsonSafe(res))
+      .then((data) => setPlaylists(data.playlists))
+      .catch((err) => console.error('Failed to load playlists:', err));
   }, []);
 
-  // 👇 fetch cookie expiry once
+  // 👇 fetch cookie expiry once (use safeFetch to avoid parsing HTML)
   useEffect(() => {
     const fetchCookieExpiry = async () => {
       try {
-        const res = await fetch(`${BACKEND_SERVER}/cookie-expiry`);
-        const data = await res.json();
+        const data = await safeFetch(`${BACKEND_SERVER}/cookie-expiry`);
         if (data.expiresAt) {
           const expiryDate = new Date(data.expiresAt);
           if (expiryDate < new Date()) {
@@ -37,7 +51,8 @@ export default function UploadPage() {
           setCookieStatus("No cookie expiry info found");
         }
       } catch (err) {
-        setCookieStatus("⚠️ Could not fetch cookie expiry");
+        console.error('cookie-expiry error:', err);
+        setCookieStatus("⚠️ Could not fetch cookie expiry (non-JSON response or server down)");
       }
     };
     fetchCookieExpiry();
@@ -48,25 +63,67 @@ export default function UploadPage() {
     setIsWaking(true);
     toast.loading("Waking up backend server... please wait");
     try {
-      const res = await fetch(`${BACKEND_SERVER}/health`);
-      if (res.ok) {
-        setServerAwake(true);
-        toast.dismiss();
-        toast.success("Server is awake! You can upload songs now.");
-      } else {
-        throw new Error("Failed to wake server");
-      }
+      // health endpoint may return non-JSON; safeFetch will throw if so
+      await safeFetch(`${BACKEND_SERVER}/health`);
+      setServerAwake(true);
+      toast.dismiss();
+      toast.success("Server is awake! You can upload songs now.");
     } catch (err) {
+      console.error('wakeServer error:', err);
       toast.dismiss();
       toast.error(err.message || "Could not wake server");
     } finally {
       setIsWaking(false);
     }
   };
+  
+  // Function to upload files with progress tracking
+  const uploadFileWithProgress = (url, formData) => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      
+      // Track upload progress
+      xhr.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = (event.loaded / event.total) * 100;
+          setUploadProgress(percentComplete);
+        }
+      });
+      
+      // Handle state changes
+      xhr.onreadystatechange = () => {
+        if (xhr.readyState === 4) { // Request completed
+          if (xhr.status >= 200 && xhr.status < 300) {
+            // Success
+            try {
+              const response = JSON.parse(xhr.responseText);
+              resolve(response);
+            } catch (error) {
+              reject(new Error('Invalid JSON response'));
+            }
+          } else {
+            // Error
+            reject(new Error(`Request failed with status ${xhr.status}`));
+          }
+        }
+      };
+      
+      // Handle errors
+      xhr.onerror = () => {
+        reject(new Error('Network error occurred'));
+      };
+      
+      // Open and send the request
+      xhr.open('POST', url, true);
+      xhr.send(formData);
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
+    setUploadProgress(0);
+    setUploadStatus('');
 
     const formData = new FormData(e.target);
 
@@ -79,47 +136,88 @@ export default function UploadPage() {
           return;
         }
 
-        const ytRes = await fetch(`${BACKEND_SERVER}/yt-upload`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            url: ytUrl,
-            title: formData.get("title"),
-            artist: formData.get("artist"),
-            genre: formData.get("genre"),
-            playlistId: formData.get("playlistId"),
-            newPlaylistName: formData.get("newPlaylistName"),
-          }),
-        });
+        // Set status for YouTube uploads
+        setUploadFileName(`YouTube: ${ytUrl}`);
+        setUploadStatus('uploading');
+        setUploadProgress(10); // Start with some progress to show user something is happening
 
-        const ytData = await ytRes.json();
-        if (!ytData.success) {
-          toast.error(ytData.error || "YouTube download failed");
+        try {
+          const ytData = await safeFetch(`${BACKEND_SERVER}/yt-upload`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              url: ytUrl,
+              title: formData.get("title"),
+              artist: formData.get("artist"),
+              genre: formData.get("genre"),
+              playlistId: formData.get("playlistId"),
+              newPlaylistName: formData.get("newPlaylistName"),
+            }),
+          });
+          
+          // Update progress for processing stage
+          setUploadProgress(75);
+          setUploadStatus('processing');
+
+          if (!ytData.success) {
+            setUploadStatus('error');
+            toast.error(ytData.error || "YouTube download failed");
+            setIsLoading(false);
+            return;
+          }
+
+          // Complete!
+          setUploadProgress(100);
+          setUploadStatus('complete');
+          toast.success("Song uploaded from YouTube!");
+          e.target.reset();
+          setUseNewPlaylist(false);
+        } catch (err) {
+          console.error('yt-upload error:', err);
+          setUploadStatus('error');
+          toast.error('YouTube upload failed: non-JSON response or server error');
           setIsLoading(false);
           return;
         }
-
-        toast.success("Song uploaded from YouTube!");
-        e.target.reset();
-        setUseNewPlaylist(false);
       }
 
       if (uploadType === "file") {
-        const res = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        });
-
-        const data = await res.json();
-        if (data.success) {
-          toast.success("Song uploaded successfully!");
-          e.target.reset();
-          setUseNewPlaylist(false);
+        // Get song file info for display
+        const songFile = formData.get("songFile");
+        if (songFile) {
+          setUploadFileName(songFile.name);
+          setUploadStatus('uploading');
         } else {
-          toast.error(data.error || "Something went wrong!");
+          toast.error("Please select a song file!");
+          setIsLoading(false);
+          return;
+        }
+        
+        try {
+          // Use XHR for progress tracking
+          const data = await uploadFileWithProgress("/api/upload", formData);
+          
+          setUploadStatus('processing');
+          setUploadProgress(90); // Almost done, processing on server
+          
+          if (data.success) {
+            setUploadProgress(100);
+            setUploadStatus('complete');
+            toast.success("Song uploaded successfully!");
+            e.target.reset();
+            setUseNewPlaylist(false);
+          } else {
+            setUploadStatus('error');
+            toast.error(data.error || "Something went wrong!");
+          }
+        } catch (err) {
+          console.error('/api/upload error:', err);
+          setUploadStatus('error');
+          toast.error(err.message || 'Server error');
         }
       }
     } catch (err) {
+      setUploadStatus('error');
       toast.error(err.message || "Server error");
     } finally {
       setIsLoading(false);
@@ -322,6 +420,15 @@ export default function UploadPage() {
             )}
           </div>
 
+          {/* Upload Progress Bar */}
+          {uploadStatus && (
+            <UploadProgressBar 
+              progress={uploadProgress} 
+              fileName={uploadFileName} 
+              status={uploadStatus} 
+            />
+          )}
+          
           <button
             type="submit"
             className={`submit-button ${isLoading ? "loading" : ""}`}

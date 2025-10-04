@@ -25,12 +25,30 @@ export function PlayerProvider({ children }) {
   };
 
   const playSong = (songs, index) => {
-    setPlaylist(songs);
-    setCurrentIndex(index);
+    // Validate inputs
+    if (!Array.isArray(songs) || songs.length === 0) {
+      console.error("Invalid songs array:", songs);
+      return;
+    }
+    
+    // Validate that songs have required properties
+    const validSongs = songs.filter(song => song && song.url);
+    
+    if (validSongs.length === 0) {
+      console.error("No valid songs with URLs found");
+      return;
+    }
+    
+    // Set the validated songs
+    setPlaylist(validSongs);
+    
+    // Ensure index is valid
+    const validIndex = index >= 0 && index < validSongs.length ? index : 0;
+    setCurrentIndex(validIndex);
     setIsPlaying(true);
 
     if (isShuffling) {
-      setShuffleQueue(createShuffleQueue(songs.length, index));
+      setShuffleQueue(createShuffleQueue(validSongs.length, validIndex));
     }
   };
 

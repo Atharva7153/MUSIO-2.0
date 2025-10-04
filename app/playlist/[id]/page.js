@@ -1,4 +1,3 @@
-// app/playlist/[id]/page.js
 "use client";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
@@ -25,7 +24,14 @@ export default function PlaylistPage() {
   useEffect(() => {
     setIsLoading(true);
     fetch(`/api/playlist/${id}`)
-      .then((res) => res.json())
+      .then(async (res) => {
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          const text = await res.text().catch(() => '<unreadable body>');
+          throw new Error(`Expected JSON but received non-JSON response (status ${res.status}): ${text.slice(0,200)}`);
+        }
+        return res.json();
+      })
       .then((data) => {
         setPlaylist(data.playlist);
         // Shuffle songs every time the playlist loads
@@ -42,10 +48,10 @@ export default function PlaylistPage() {
 
   if (isLoading) {
     return (
-      <div className="playlist-page page-content">
-        <div className="loading-state">
+      <div className="playlist-page">
+        <div className="loading-container">
           <div className="loading-spinner"></div>
-          Loading playlist...
+          <p>Loading playlist...</p>
         </div>
       </div>
     );
@@ -53,89 +59,72 @@ export default function PlaylistPage() {
 
   if (!playlist) {
     return (
-      <div className="playlist-page page-content">
-        <div className="playlist-container">
-          <div className="empty-state">
-            <div className="empty-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M16 16s-1.5-2-4-2-4 2-4 2"/>
-                <line x1="9" y1="9" x2="9.01" y2="9"/>
-                <line x1="15" y1="9" x2="15.01" y2="9"/>
-              </svg>
-            </div>
-            <h2 className="empty-title">Playlist Not Found</h2>
-            <p className="empty-description">The playlist you're looking for doesn't exist or has been removed.</p>
-          </div>
+      <div className="playlist-page">
+        <div className="empty-state">
+          <svg viewBox="0 0 24 24" className="empty-icon">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M16 16s-1.5-2-4-2-4 2-4 2"/>
+            <line x1="9" y1="9" x2="9.01" y2="9"/>
+            <line x1="15" y1="9" x2="15.01" y2="9"/>
+          </svg>
+          <h2>Playlist Not Found</h2>
+          <p>The playlist you're looking for doesn't exist or has been removed.</p>
         </div>
       </div>
     );
   }
 
+  const playAllSongs = () => {
+    if (shuffledSongs.length > 0) {
+      playSong(shuffledSongs, 0);
+    }
+  };
+
+  const reshuffleSongs = () => {
+    setShuffledSongs(shuffleArray([...playlist.songs]));
+  };
+
   return (
-    <div className="playlist-page page-content">
-      <div className="playlist-container">
-        {/* Playlist Header */}
-        <div className="playlist-header">
-          <div className="playlist-header-content">
-            <div className="playlist-cover-container">
-              <img
-                src={playlist.coverImage || "/default-playlist.png"}
-                alt={playlist.name}
-                className="playlist-cover"
-              />
-              <div className="cover-overlay">
-                <svg className="play-icon-large" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M8 5v14l11-7z"/>
-                </svg>
+    <div className="playlist-page">
+      {/* Hero Section */}
+      <div className="playlist-hero">
+        <div className="playlist-hero-backdrop" style={{ 
+          backgroundImage: playlist.coverImage ? `url(${playlist.coverImage})` : 'var(--gradient-primary)' 
+        }}></div>
+        
+        <div className="playlist-hero-content">
+          <div className="playlist-cover-wrapper">
+            <img
+              src={playlist.coverImage || "/default-playlist.png"}
+              alt={playlist.name}
+              className="playlist-cover"
+            />
+            <button className="play-all-button" onClick={playAllSongs} disabled={shuffledSongs.length === 0}>
+              <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+          </div>
+
+          <div className="playlist-info">
+            <div className="playlist-type-badge">Playlist</div>
+            <h1 className="playlist-title">{playlist.name}</h1>
+            
+            {playlist.description && (
+              <p className="playlist-description">{playlist.description}</p>
+            )}
+            
+            <div className="playlist-meta">
+              <div className="playlist-stats">
+                <span className="song-count">{playlist.songs.length} {playlist.songs.length === 1 ? 'track' : 'tracks'}</span>
               </div>
-            </div>
-            <div className="playlist-info">
-              <span className="playlist-badge">Playlist</span>
-              <h1 className="playlist-title">{playlist.name}</h1>
-              <div className="playlist-meta">
-                <div className="playlist-song-count">
-                  <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-                  </svg>
-                  {playlist.songs.length} {playlist.songs.length === 1 ? 'song' : 'songs'}
-                </div>
-                <span className="shuffle-indicator">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="16,3 21,3 21,8"/>
-                    <line x1="4" y1="20" x2="21" y2="3"/>
-                    <polyline points="21,16 21,21 16,21"/>
-                    <line x1="15" y1="15" x2="21" y2="21"/>
-                    <line x1="4" y1="4" x2="9" y2="9"/>
-                  </svg>
-                  Shuffled
-                </span>
-              </div>
-              {playlist.description && (
-                <p className="playlist-description">{playlist.description}</p>
-              )}
+              
               <div className="playlist-actions">
-                <button 
-                  className="play-all-btn"
-                  onClick={() => playSong(shuffledSongs, 0)}
-                  disabled={shuffledSongs.length === 0}
-                >
-                  <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M8 5v14l11-7z"/>
-                  </svg>
+                <button className="action-button primary" onClick={playAllSongs} disabled={shuffledSongs.length === 0}>
+                  <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                   Play All
                 </button>
-                <button 
-                  className="shuffle-btn"
-                  onClick={() => setShuffledSongs(shuffleArray(playlist.songs))}
-                  disabled={playlist.songs.length === 0}
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="16,3 21,3 21,8"/>
-                    <line x1="4" y1="20" x2="21" y2="3"/>
-                    <polyline points="21,16 21,21 16,21"/>
-                    <line x1="15" y1="15" x2="21" y2="21"/>
-                    <line x1="4" y1="4" x2="9" y2="9"/>
+                <button className="action-button secondary" onClick={reshuffleSongs} disabled={shuffledSongs.length <= 1}>
+                  <svg viewBox="0 0 24 24">
+                    <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>
                   </svg>
                   Shuffle
                 </button>
@@ -143,95 +132,84 @@ export default function PlaylistPage() {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Songs List */}
-        <div className="songs-section">
-          <div className="songs-content">
-            <div className="songs-header">
-              <div>
-                <svg className="songs-icon" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-                </svg>
-                <h2 className="songs-title">Track List</h2>
-              </div>
-              <div className="songs-stats">
-                {shuffledSongs.length} tracks • Randomized order
-              </div>
+      {/* Tracks Section */}
+      <div className="tracks-section">
+        <div className="section-header">
+          <h2>Tracks</h2>
+          {shuffledSongs.length > 0 && 
+            <span className="shuffle-indicator">Randomized order</span>
+          }
+        </div>
+
+        {shuffledSongs.length === 0 ? (
+          <div className="empty-tracks">
+            <svg className="empty-icon" viewBox="0 0 24 24">
+              <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+            </svg>
+            <h3>No Tracks</h3>
+            <p>This playlist doesn't have any tracks yet.</p>
+          </div>
+        ) : (
+          <div className="tracks-list">
+            <div className="track-header">
+              <div className="track-number">#</div>
+              <div className="track-title">Title</div>
+              <div className="track-artist">Artist</div>
+              <div className="track-duration">Duration</div>
+              <div className="track-actions"></div>
             </div>
-
-            {shuffledSongs.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-icon">
-                  <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+            
+            {shuffledSongs.map((song, index) => (
+              <div
+                key={`${song._id}-${index}`}
+                className="track-item"
+                onClick={() => playSong(shuffledSongs, index)}
+              >
+                <div className="track-number">
+                  <span className="number">{index + 1}</span>
+                  <svg className="play-icon" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
                   </svg>
                 </div>
-                <h3 className="empty-title">No Songs Yet</h3>
-                <p className="empty-description">This playlist is empty. Add some songs to get started!</p>
-              </div>
-            ) : (
-              <div className="songs-list">
-                {shuffledSongs.map((song, index) => (
-                  <div
-                    key={`${song._id}-${index}`}
-                    className="song-item"
-                    onClick={() => playSong(shuffledSongs, index)}
-                    tabIndex={0}
-                    role="button"
-                    aria-label={`Play ${song.title} by ${song.artist}`}
-                  >
-                    <div className="song-index">{index + 1}</div>
-                    
-                    <div className="song-cover-container">
-                      {song.coverImage ? (
-                        <img
-                          src={song.coverImage}
-                          alt={song.title}
-                          className="song-cover"
-                        />
-                      ) : (
-                        <div className="song-cover-placeholder">
-                          <svg viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-                          </svg>
-                        </div>
-                      )}
-                      <div className="song-cover-overlay">
-                        <svg className="play-icon" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M8 5v14l11-7z"/>
+                
+                <div className="track-title">
+                  <div className="track-image">
+                    {song.coverImage ? (
+                      <img src={song.coverImage} alt={song.title} />
+                    ) : (
+                      <div className="track-image-placeholder">
+                        <svg viewBox="0 0 24 24">
+                          <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
                         </svg>
                       </div>
-                    </div>
-                    
-                    <div className="song-info">
-                      <h3 className="song-title">{song.title}</h3>
-                      <p className="song-artist">{song.artist || 'Unknown Artist'}</p>
-                    </div>
-
-                    <div className="song-duration">
-                      {song.duration || '3:45'}
-                    </div>
-                    
-                    <div className="song-actions">
-                      <button className="action-btn" aria-label="Add to favorites">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                        </svg>
-                      </button>
-                      <button className="action-btn" aria-label="More options">
-                        <svg viewBox="0 0 24 24" fill="currentColor">
-                          <circle cx="12" cy="12" r="1"/>
-                          <circle cx="12" cy="5" r="1"/>
-                          <circle cx="12" cy="19" r="1"/>
-                        </svg>
-                      </button>
-                    </div>
+                    )}
                   </div>
-                ))}
+                  <span className="title-text">{song.title}</span>
+                </div>
+                
+                <div className="track-artist">{song.artist || 'Unknown Artist'}</div>
+                <div className="track-duration">{song.duration || '3:45'}</div>
+                
+                <div className="track-actions">
+                  <button className="track-action-button" onClick={(e) => e.stopPropagation()}>
+                    <svg viewBox="0 0 24 24">
+                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                    </svg>
+                  </button>
+                  <button className="track-action-button" onClick={(e) => e.stopPropagation()}>
+                    <svg viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="1"/>
+                      <circle cx="12" cy="5" r="1"/>
+                      <circle cx="12" cy="19" r="1"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
-            )}
+            ))}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
