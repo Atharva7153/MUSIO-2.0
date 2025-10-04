@@ -66,7 +66,7 @@ export default function HomePage() {
           <div className="hero-content">
             <div className="hero-text">
               <h1 className="hero-title">
-                Welcome to <span className="gradient-text">MUSIO 2.0</span>
+                Welcome to <span className="gradient-text">MUSIO 3.0</span>
               </h1>
               <p className="hero-subtitle">
                 ---bby Atharva Sharma

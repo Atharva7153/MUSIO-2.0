@@ -192,7 +192,7 @@ const Navbar = () => {
         </div>
         <div className="logo-text">
           <h1 className="navbar-logo">MUSIO</h1>
-          <span className="version-badge">2.0</span>
+          <span className="version-badge">3.0</span>
         </div>
       </Link>
 
@@ -222,6 +222,12 @@ const Navbar = () => {
               <path d="12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
             </svg>
             <span>Discover</span>
+          </Link>
+          <Link href="/analytics" className="navbar-link">
+            <svg className="navbar-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2v-4h2v4zm4 0h-2v-2h2v2zm0-6h-2v-2h2v2z"/>
+            </svg>
+            <span>Analytics</span>
           </Link>
         </div>
       </div>
@@ -429,6 +435,12 @@ const Navbar = () => {
                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                 </svg>
                 <span>Discover</span>
+              </Link>
+              <Link href="/analytics" className="mobile-link" onClick={() => setIsMobileMenuOpen(false)}>
+                <svg viewBox="0 0 24 24">
+                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2v-4h2v4zm4 0h-2v-2h2v2zm0-6h-2v-2h2v2z"/>
+                </svg>
+                <span>Analytics</span>
               </Link>
               
               {/* Dark Mode Toggle in Mobile Menu */}
