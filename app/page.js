@@ -60,8 +60,26 @@ export default function HomePage() {
         {/* Hero Section */}
         <section className="hero-section">
           <div className="hero-background">
-            <div className="hero-gradient"></div>
-            <div className="hero-pattern"></div>
+            {/* Animated gradient backgrounds */}
+            <div className="hero-gradient-1"></div>
+            <div className="hero-gradient-2"></div>
+            <div className="hero-gradient-3"></div>
+            
+            {/* Animated particles */}
+            <div className="hero-particles">
+              {[...Array(15)].map((_, i) => (
+                <div key={i} className={`hero-particle hero-p${i+1}`}></div>
+              ))}
+            </div>
+            
+            {/* Music notes */}
+            <div className="hero-notes">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className={`hero-note hero-n${i+1}`}>
+                  {i % 2 === 0 ? '♪' : '♫'}
+                </div>
+              ))}
+            </div>
           </div>
           <div className="hero-content">
             <div className="hero-text">
