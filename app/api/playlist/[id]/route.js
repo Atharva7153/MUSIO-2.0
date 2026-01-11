@@ -6,14 +6,16 @@ import NewPlaylist from "../../../models/Playlist";
 
 export async function GET(req, { params }) {
   try {
+    const { id } = await params;
     await Promise.all([oldDB, newDB]);
-    let playlist = await OldPlaylist.findById(params.id).populate("songs");
+    let playlist = await OldPlaylist.findById(id).populate("songs");
     if (!playlist) {
-      playlist = await NewPlaylist.findById(params.id).populate("songs");
+      playlist = await NewPlaylist.findById(id).populate("songs");
     }
     return NextResponse.json({ playlist });
   } catch (error) {
-    console.error(`Error fetching playlist with id ${params.id}:`, error);
+    const { id } = await params;
+    console.error(`Error fetching playlist with id ${id}:`, error);
     return NextResponse.json(
       { success: false, error: "Failed to fetch playlist" },
       { status: 500 }
@@ -22,7 +24,7 @@ export async function GET(req, { params }) {
 }
 
 export async function PUT(req, { params }) {
-  const { id } = params;
+  const { id } = await params;
   const body = await req.json();
   const { action, songId, keyword } = body;
 
