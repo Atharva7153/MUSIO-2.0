@@ -35,7 +35,10 @@ function uploadToCloudinary(fileBuffer, folder, resource_type = "auto") {
 export async function POST(req) {
   try {
     // Ensure connections are awaited
-    await Promise.all([oldDB, newDB]);
+    await Promise.all([
+      oldDB.asPromise(),
+      newDB.asPromise()
+    ]);
 
     const formData = await req.formData();
 

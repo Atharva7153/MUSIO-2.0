@@ -6,7 +6,12 @@ import NewPlaylist from "../../models/Playlist";
 
 export async function GET() {
   try {
-    await Promise.all([oldDB, newDB]);
+    // Wait for both connections to be ready
+    await Promise.all([
+      oldDB.asPromise(),
+      newDB.asPromise()
+    ]);
+    
     const oldPlaylists = await OldPlaylist.find().populate("songs");
     const newPlaylists = await NewPlaylist.find().populate("songs");
     const playlists = [...oldPlaylists, ...newPlaylists];

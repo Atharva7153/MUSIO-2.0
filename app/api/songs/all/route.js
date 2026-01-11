@@ -5,7 +5,11 @@ import NewSong from "../../../models/Song";
 
 export async function GET() {
   try {
-    await Promise.all([oldDB, newDB]);
+    // Wait for both connections to be ready
+    await Promise.all([
+      oldDB.asPromise(),
+      newDB.asPromise()
+    ]);
     
     const oldSongs = await OldSong.find({})
       .sort({ createdAt: -1 })

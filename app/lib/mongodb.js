@@ -5,9 +5,7 @@ const createConnection = (uri) => {
   if (!uri) {
     throw new Error("MongoDB URI is not defined.");
   }
-  const connection = mongoose.createConnection(uri, {
-    bufferCommands: false,
-  });
+  const connection = mongoose.createConnection(uri);
   return connection;
 };
 
@@ -16,29 +14,27 @@ const createConnection = (uri) => {
 global.mongooseConnections = global.mongooseConnections || {};
 
 // Connection for the OLD database (reading existing data)
-let oldDb = global.mongooseConnections.oldDb;
-if (!oldDb) {
-  oldDb = global.mongooseConnections.oldDb = createConnection(process.env.MONGO_URI_OLD);
+if (!global.mongooseConnections.oldDb) {
+  global.mongooseConnections.oldDb = createConnection(process.env.MONGO_URI_OLD);
 }
 
 // Connection for the NEW database (writing new data)
-let newDb = global.mongooseConnections.newDb;
-if (!newDb) {
-  newDb = global.mongooseConnections.newDb = createConnection(process.env.MONGO_URI || process.env.MONGODB_URI || process.env.MONGO_URI_NEW);
+if (!global.mongooseConnections.newDb) {
+  global.mongooseConnections.newDb = createConnection(process.env.MONGO_URI || process.env.MONGODB_URI || process.env.MONGO_URI_NEW);
 }
 
 
 // --- Exports ---
-export const oldDB = oldDb;
-export const newDB = newDb;
+export const oldDB = global.mongooseConnections.oldDb;
+export const newDB = global.mongooseConnections.newDb;
 
 // Default export can be one of the connections, or you can choose based on your primary use case.
 // Let's default to the new database connection.
-export default newDb;
+export default global.mongooseConnections.newDb;
 
 
 // A helper to connect and get the native client
 export async function connectToDatabase(connection) {
-    await connection;
+    await connection.asPromise();
     return connection.getClient();
 }
