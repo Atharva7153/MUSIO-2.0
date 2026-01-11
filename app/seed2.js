@@ -52,10 +52,10 @@ async function addSongsToPlaylist(playlistName, songsData) {
     [
   
   {
-    title: "O mahi",
+    title: "Gehra hua",
     artist: "Arjit Singh",
-    url: "https://res.cloudinary.com/di64iiq19/video/upload/v1756692860/SpotiDownloader.com_-_O_Maahi_From__Dunki__-_Pritam_ydecd3.mp3",
-    coverImage: "https://res.cloudinary.com/di64iiq19/image/upload/v1756692861/Cover_of_O_Maahi_From__Dunki__by_Pritam_Arijit_Singh_Irshad_Kamil_yvbfuh.jpg",
+    url: "https://res.cloudinary.com/di64iiq19/video/upload/v1768051418/songs/amxu7yw4u5cx1l11uoru.webm",
+    coverImage: "https://res.cloudinary.com/di64iiq19/image/upload/v1768051421/playlist_covers/hx6jehykk7mwo3zzqjld.png",
   },
   
 ]

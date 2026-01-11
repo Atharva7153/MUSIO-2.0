@@ -1,8 +1,8 @@
 // app/api/upload/route.js
 import { NextResponse } from "next/server";
-import connectDB from "../../lib/mongodb";
-import Song from "../../models/Song";
-import Playlist from "../../models/Playlist";
+import { oldDB, newDB } from "../../lib/mongodb";
+import NewSong, { OldSong } from "../../models/Song";
+import NewPlaylist, { OldPlaylist } from "../../models/Playlist";
 import { v2 as cloudinary } from "cloudinary";
 
 // Cloudinary config
@@ -34,7 +34,8 @@ function uploadToCloudinary(fileBuffer, folder, resource_type = "auto") {
 
 export async function POST(req) {
   try {
-    await connectDB();
+    // Ensure connections are awaited
+    await Promise.all([oldDB, newDB]);
 
     const formData = await req.formData();
 
@@ -42,7 +43,7 @@ export async function POST(req) {
     const title = formData.get("title");
     const artist = formData.get("artist");
     const genre = formData.get("genre");
-    const playlistId = formData.get("playlistId"); // "existing" or "new"
+    const playlistId = formData.get("playlistId");
     const newPlaylistName = formData.get("newPlaylistName");
 
     // Files
@@ -50,60 +51,77 @@ export async function POST(req) {
     const songCover = formData.get("songCover");
     const playlistCover = formData.get("playlistCover");
 
-    // Upload song file
-    let songUpload;
-    if (songFile) {
-      const songBuffer = await fileToBuffer(songFile);
-      songUpload = await uploadToCloudinary(songBuffer, "songs", "auto");
+    // 1. Upload files to Cloudinary
+    const songBuffer = await fileToBuffer(songFile);
+    const songUploadResult = await uploadToCloudinary(songBuffer, "songs", "video");
+
+    let songCoverUploadResult;
+    if (songCover && songCover.size > 0) {
+        const coverBuffer = await fileToBuffer(songCover);
+        songCoverUploadResult = await uploadToCloudinary(coverBuffer, "song_covers", "image");
     }
 
-    // Upload song cover
-    let songCoverUrl = "";
-    if (songCover) {
-      const coverBuffer = await fileToBuffer(songCover);
-      const coverUpload = await uploadToCloudinary(coverBuffer, "song_covers", "image");
-      songCoverUrl = coverUpload.secure_url;
+    // 2. Create the new song in the NEW database
+    const newSongData = {
+        title,
+        artist,
+        genre,
+        url: songUploadResult.secure_url,
+        duration: songUploadResult.duration,
+        coverImage: songCoverUploadResult?.secure_url,
+    };
+    const savedNewSong = await NewSong.create(newSongData);
+
+    let finalSong = savedNewSong;
+    let finalPlaylist = null;
+
+    // 3. Handle playlist logic
+    if (playlistId) {
+        if (playlistId === "new" && newPlaylistName) {
+            // Create a new playlist in the NEW database and add the new song
+            const newPlaylist = await NewPlaylist.create({
+                name: newPlaylistName,
+                songs: [savedNewSong._id],
+                coverImage: savedNewSong.coverImage || "/playlist.png"
+            });
+            finalPlaylist = newPlaylist;
+        } else if (playlistId !== "new") {
+            // Find if the playlist exists in the OLD or NEW database
+            let playlist = await OldPlaylist.findById(playlistId);
+            let playlistDB = "old";
+            if (!playlist) {
+                playlist = await NewPlaylist.findById(playlistId);
+                playlistDB = "new";
+            }
+
+            if (playlist) {
+                if (playlistDB === "old") {
+                    // Playlist is in the old DB, so the song must also exist there to be referenced
+                    const oldSongData = { ...newSongData, _id: savedNewSong._id }; // Use same ID if possible, though mongo might assign a new one if not compatible
+                    const savedOldSong = await OldSong.create(oldSongData);
+                    playlist.songs.push(savedOldSong._id);
+                    finalSong = savedOldSong; // The song in the context of this playlist is the old one
+                } else {
+                    // Playlist is in the new DB
+                    playlist.songs.push(savedNewSong._id);
+                }
+                await playlist.save();
+                finalPlaylist = playlist;
+            }
+        }
     }
 
-    // Save Song
-    const newSong = await Song.create({
-      title,
-      artist,
-      genre: genre || 'Unknown',
-      url: songUpload?.secure_url,
-      coverImage: songCoverUrl,
+    return NextResponse.json({
+        success: true,
+        song: finalSong,
+        playlist: finalPlaylist,
+        message: "Song uploaded successfully"
     });
-
-    let playlist;
-
-    // Add to existing playlist
-    if (playlistId && playlistId !== "new") {
-      playlist = await Playlist.findById(playlistId);
-      playlist.songs.push(newSong._id);
-      await playlist.save();
-    }
-    // Or create new playlist
-    else if (newPlaylistName) {
-      let playlistCoverUrl = "";
-      if (playlistCover) {
-        const playlistBuffer = await fileToBuffer(playlistCover);
-        const playlistCoverUpload = await uploadToCloudinary(playlistBuffer, "playlist_covers", "image");
-        playlistCoverUrl = playlistCoverUpload.secure_url;
-      }
-
-      playlist = await Playlist.create({
-        name: newPlaylistName,
-        coverImage: playlistCoverUrl,
-        songs: [newSong._id],
-      });
-    }
-
-    return NextResponse.json({ success: true, song: newSong, playlist });
-  } catch (error) {
-    console.error(error);
+} catch (error) {
+    console.error("Error in upload:", error);
     return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
+        { success: false, error: "Upload failed: " + error.message },
+        { status: 500 }
     );
-  }
+}
 }

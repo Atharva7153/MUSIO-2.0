@@ -1,12 +1,21 @@
 // app/api/playlists/route.js
 import { NextResponse } from "next/server";
-import connectDB from "../../lib/mongodb";
-import Playlist from "../../models/Playlist";
-import Song from "../../models/Song"; 
-
+import { oldDB, newDB } from "../../lib/mongodb";
+import { OldPlaylist } from "../../models/Playlist";
+import NewPlaylist from "../../models/Playlist";
 
 export async function GET() {
-  await connectDB();
-  const playlists = await Playlist.find().populate("songs");
-  return NextResponse.json({ playlists});
+  try {
+    await Promise.all([oldDB, newDB]);
+    const oldPlaylists = await OldPlaylist.find().populate("songs");
+    const newPlaylists = await NewPlaylist.find().populate("songs");
+    const playlists = [...oldPlaylists, ...newPlaylists];
+    return NextResponse.json({ playlists });
+  } catch (error) {
+    console.error("Error fetching playlists:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to fetch playlists" },
+      { status: 500 }
+    );
+  }
 }

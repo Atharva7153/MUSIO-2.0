@@ -11,7 +11,6 @@
     "@react-three/drei": "^10.7.5",
     "@react-three/fiber": "^9.3.0",
     "cloudinary": "^2.7.0",
-    "dotenv": "^17.2.1",
     "lucide-react": "^0.542.0",
     "mongoos": "^0.0.1-security",
     "mongoose": "^8.18.0",
@@ -23,6 +22,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "dotenv": "^17.2.3",
     "tailwindcss": "^4"
   }
 }

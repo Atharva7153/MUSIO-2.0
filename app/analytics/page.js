@@ -190,7 +190,7 @@ export default function AnalyticsPage() {
             <div className="analytics-list">
               {stats.topSongs.length > 0 ? (
                 stats.topSongs.map((song, index) => (
-                  <div key={song._id} className="analytics-list-item" onClick={() => handleSongPlay(song)}>
+                  <div key={`${song._id}-${index}`} className="analytics-list-item" onClick={() => handleSongPlay(song)}>
                     <div className="item-rank">{index + 1}</div>
                     <img
                       src={song.coverImage || "/music-player.png"}
@@ -272,8 +272,8 @@ export default function AnalyticsPage() {
             <h2>Recently Added</h2>
             <div className="analytics-list">
               {stats.recentlyAdded.length > 0 ? (
-                stats.recentlyAdded.map((song) => (
-                  <div key={song._id} className="analytics-list-item" onClick={() => handleSongPlay(song)}>
+                stats.recentlyAdded.map((song, index) => (
+                  <div key={`${song._id}-${index}`} className="analytics-list-item" onClick={() => handleSongPlay(song)}>
                     <img
                       src={song.coverImage || "/music-player.png"}
                       alt={song.title}

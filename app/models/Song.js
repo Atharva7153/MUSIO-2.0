@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { oldDB, newDB } from "../lib/mongodb.js";
 
 const SongSchema = new mongoose.Schema({
     title : {type : String, required : true},
@@ -12,4 +13,11 @@ const SongSchema = new mongoose.Schema({
 }, {timestamps : true})
 
 
-export default mongoose.models.Song || mongoose.model("Song", SongSchema);
+// Model for the old database (for reading)
+export const OldSong = oldDB.models.Song || oldDB.model("Song", SongSchema);
+
+// Model for the new database (for writing)
+const NewSong = newDB.models.Song || newDB.model("Song", SongSchema);
+
+
+export default NewSong;

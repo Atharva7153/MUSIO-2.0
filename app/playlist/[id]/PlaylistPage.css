@@ -497,6 +497,34 @@
   fill: currentColor;
 }
 
+/* Delete Button in Track Actions */
+.track-action-button.delete-button {
+  color: #ef4444;
+}
+
+.track-action-button.delete-button:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+}
+
+.track-action-button.delete-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.track-action-button.delete-button .spinner {
+  animation: spinDelete 1s linear infinite;
+}
+
+@keyframes spinDelete {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Responsive Styles */
 @media (max-width: 1024px) {
   .playlist-hero-content {

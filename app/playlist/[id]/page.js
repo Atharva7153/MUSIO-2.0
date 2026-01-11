@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { usePlayer } from "../../context/PlayerContext";
+import AddToPlaylistModal from "../../components/AddToPlaylistModal";
 import "./PlaylistPage.css";
 
 export default function PlaylistPage() {
@@ -10,6 +11,19 @@ export default function PlaylistPage() {
   const [shuffledSongs, setShuffledSongs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const { playSong } = usePlayer();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedSong, setSelectedSong] = useState(null);
+  const [deletingSongId, setDeletingSongId] = useState(null);
+
+  const openModal = (song) => {
+    setSelectedSong(song);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedSong(null);
+  };
 
   // Fisher-Yates shuffle algorithm for randomizing songs
   const shuffleArray = (array) => {
@@ -82,6 +96,44 @@ export default function PlaylistPage() {
 
   const reshuffleSongs = () => {
     setShuffledSongs(shuffleArray([...playlist.songs]));
+  };
+
+  const handleDeleteSong = async (e, songId, songTitle) => {
+    e.stopPropagation(); // Prevent song from playing when clicking delete
+    
+    const key = prompt(`To delete "${songTitle}", please enter the confirmation key:`);
+    
+    if (!key) {
+      return; // User cancelled
+    }
+    
+    setDeletingSongId(songId);
+    
+    try {
+      const response = await fetch(`/api/songs/delete?id=${songId}&key=${encodeURIComponent(key)}`, {
+        method: 'DELETE',
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(`Song "${songTitle}" deleted successfully!`);
+        // Refresh the playlist by fetching it again
+        const playlistRes = await fetch(`/api/playlist/${id}`);
+        const playlistData = await playlistRes.json();
+        setPlaylist(playlistData.playlist);
+        if (playlistData.playlist && playlistData.playlist.songs) {
+          setShuffledSongs(shuffleArray(playlistData.playlist.songs));
+        }
+      } else {
+        alert(`Failed to delete song: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Error deleting song:', error);
+      alert('Failed to delete song. Please try again.');
+    } finally {
+      setDeletingSongId(null);
+    }
   };
 
   return (
@@ -193,17 +245,33 @@ export default function PlaylistPage() {
                 <div className="track-duration">{song.duration || '3:45'}</div>
                 
                 <div className="track-actions">
-                  <button className="track-action-button" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    className="track-action-button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openModal(song);
+                    }}
+                    title="Add to playlist"
+                  >
                     <svg viewBox="0 0 24 24">
-                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                      <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
                     </svg>
                   </button>
-                  <button className="track-action-button" onClick={(e) => e.stopPropagation()}>
-                    <svg viewBox="0 0 24 24">
-                      <circle cx="12" cy="12" r="1"/>
-                      <circle cx="12" cy="5" r="1"/>
-                      <circle cx="12" cy="19" r="1"/>
-                    </svg>
+                  <button 
+                    className="track-action-button delete-button"
+                    onClick={(e) => handleDeleteSong(e, song._id, song.title)}
+                    disabled={deletingSongId === song._id}
+                    title="Delete song"
+                  >
+                    {deletingSongId === song._id ? (
+                      <svg viewBox="0 0 24 24" className="spinner">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="none" />
+                      </svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                      </svg>
+                    )}
                   </button>
                 </div>
               </div>
@@ -211,6 +279,7 @@ export default function PlaylistPage() {
           </div>
         )}
       </div>
+      {isModalOpen && <AddToPlaylistModal song={selectedSong} onClose={closeModal} />}
     </div>
   );
 }

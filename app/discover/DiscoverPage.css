@@ -156,6 +156,64 @@
   transform: translate(-50%, -50%) scale(1.1);
 }
 
+/* Delete Button on Discovery Song Card */
+.discovery-song-card .delete-song-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: rgba(239, 68, 68, 0.9);
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 10;
+  backdrop-filter: blur(10px);
+}
+
+.discovery-song-card:hover .delete-song-btn {
+  opacity: 1;
+}
+
+.discovery-song-card .delete-song-btn:hover {
+  background: rgba(220, 38, 38, 1);
+  transform: scale(1.1);
+}
+
+.discovery-song-card .delete-song-btn:active {
+  transform: scale(0.95);
+}
+
+.discovery-song-card .delete-song-btn:disabled {
+  background: rgba(156, 163, 175, 0.9);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.discovery-song-card .delete-song-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: white;
+}
+
+.discovery-song-card .delete-song-btn .spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .song-info {
   position: relative;
   z-index: 2;

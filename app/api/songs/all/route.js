@@ -1,19 +1,25 @@
 import { NextResponse } from "next/server";
-import connectDB from "../../../lib/mongodb";
-import Song from "../../../models/Song";
+import { oldDB, newDB } from "../../../lib/mongodb";
+import { OldSong } from "../../../models/Song";
+import NewSong from "../../../models/Song";
 
 export async function GET() {
   try {
-    await connectDB();
+    await Promise.all([oldDB, newDB]);
     
-    const songs = await Song.find({})
-      .sort({ createdAt: -1 }) // Sort by newest first
-      .limit(50) // Limit to 50 most recent songs
+    const oldSongs = await OldSong.find({})
+      .sort({ createdAt: -1 })
       .lean();
+    
+    const newSongs = await NewSong.find({})
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const songs = [...oldSongs, ...newSongs].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     
     return NextResponse.json({
       success: true,
-      songs: songs
+      songs: songs.slice(0, 50)
     });
   } catch (error) {
     console.error("Error fetching songs:", error);
