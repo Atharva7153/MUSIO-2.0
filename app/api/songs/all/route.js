@@ -15,11 +15,26 @@ export async function GET() {
       .sort({ createdAt: -1 })
       .lean();
 
-    const songs = [...oldSongs, ...newSongs].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    // Combine and deduplicate by _id (prefer newer songs from NEW db)
+    const songMap = new Map();
+    
+    // Add old songs first
+    oldSongs.forEach(song => {
+      songMap.set(song._id.toString(), song);
+    });
+    
+    // Add new songs (will overwrite duplicates)
+    newSongs.forEach(song => {
+      songMap.set(song._id.toString(), song);
+    });
+    
+    // Convert back to array and sort by date
+    const uniqueSongs = Array.from(songMap.values())
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     
     return NextResponse.json({
       success: true,
-      songs: songs.slice(0, 50)
+      songs: uniqueSongs.slice(0, 50)
     });
   } catch (error) {
     console.error("Error fetching songs:", error);

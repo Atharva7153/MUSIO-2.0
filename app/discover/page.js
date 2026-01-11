@@ -12,7 +12,6 @@ export default function DiscoverPage() {
   const [selectedGenre, setSelectedGenre] = useState('pop');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [deletingSongId, setDeletingSongId] = useState(null);
   
   const { playlist, currentIndex, playSong, setIsPlaying } = usePlayer();
   
@@ -100,41 +99,6 @@ export default function DiscoverPage() {
     }, 1000);
   };
   
-  const handleDeleteSong = async (e, songId, songTitle) => {
-    e.stopPropagation(); // Prevent song from playing when clicking delete
-    
-    const key = prompt(`To delete "${songTitle}", please enter the confirmation key:`);
-    
-    if (!key) {
-      return; // User cancelled
-    }
-    
-    setDeletingSongId(songId);
-    
-    try {
-      const response = await fetch(`/api/songs/delete?id=${songId}&key=${encodeURIComponent(key)}`, {
-        method: 'DELETE',
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        alert(`Song "${songTitle}" deleted successfully!`);
-        // Refresh all song lists
-        setTrendingSongs(prev => prev.filter(song => song._id !== songId));
-        setSimilarSongs(prev => prev.filter(song => song._id !== songId));
-        setGenreRecommendations(prev => prev.filter(song => song._id !== songId));
-      } else {
-        alert(`Failed to delete song: ${data.error}`);
-      }
-    } catch (error) {
-      console.error('Error deleting song:', error);
-      alert('Failed to delete song. Please try again.');
-    } finally {
-      setDeletingSongId(null);
-    }
-  };
-  
   const formatDuration = (duration) => {
     if (!duration) return '0:00';
     const minutes = Math.floor(duration / 60);
@@ -162,22 +126,6 @@ export default function DiscoverPage() {
             <path d="8 5v14l11-7z"/>
           </svg>
         </div>
-        <button
-          className="delete-song-btn"
-          onClick={(e) => handleDeleteSong(e, song._id, song.title)}
-          disabled={deletingSongId === song._id}
-          title="Delete song"
-        >
-          {deletingSongId === song._id ? (
-            <svg viewBox="0 0 24 24" className="spinner">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="none" />
-            </svg>
-          ) : (
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-            </svg>
-          )}
-        </button>
       </div>
       
       <div className="song-info">
