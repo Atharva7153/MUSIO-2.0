@@ -91,7 +91,10 @@ export default function Playbar() {
 
   const currentSong = playlist[currentIndex];
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
-  const isCinematic = pathname === "/cinematic" || pathname === "/constellation";
+  const isCinematic =
+    pathname === "/cinematic" ||
+    pathname === "/constellation" ||
+    pathname === "/deck";
 
   const songIdKey = currentSong?._id || currentSong?.title || "unknown";
   const currentSongStamps = allStamps[songIdKey] || [];

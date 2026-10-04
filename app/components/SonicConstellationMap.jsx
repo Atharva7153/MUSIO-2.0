@@ -1,6 +1,54 @@
 "use client";
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 import { usePlayer } from "../context/PlayerContext";
+
+const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+const MYTHIC_NAMES = [
+  "LYRA",
+  "CYGNUS",
+  "VELA",
+  "ORION",
+  "CASSIOPEIA",
+  "ANDROMEDA",
+  "CARINA",
+  "ASTRALIS",
+  "HYPERION",
+  "SOLARIS",
+];
+
+// Subtle Web Audio harmonic chime when locking a star into a Voyager Flight Path
+function playStarLockChime(stepIndex = 0) {
+  if (typeof window === "undefined") return;
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    if (!window.__musioChimeCtx) {
+      window.__musioChimeCtx = new AudioCtx();
+    }
+    const ctx = window.__musioChimeCtx;
+    if (ctx.state === "suspended") ctx.resume();
+
+    // Celestial pentatonic scale frequencies
+    const scale = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.5];
+    const freq = scale[stepIndex % scale.length];
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+
+    gain.gain.setValueAtTime(0.001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.065, ctx.currentTime + 0.025);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.55);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.58);
+  } catch {
+    // Ignore audio context restrictions
+  }
+}
 
 export default function SonicConstellationMap({ songs: propSongs }) {
   const {
@@ -10,11 +58,24 @@ export default function SonicConstellationMap({ songs: propSongs }) {
     isPlaying,
     setIsPlaying,
     subscribeAudio,
+    audioElementRef,
   } = usePlayer();
 
   const canvasRef = useRef(null);
-  const fetchedSongsRef = useRef([]);
+  const [catalogSongs, setCatalogSongs] = useState([]);
   const hoveredNodeIdRef = useRef(null);
+
+  // Voyager Flight Path state (kept in ref for 60fps canvas loop)
+  const voyagerRef = useRef({
+    isDrawing: false,
+    draftIds: [],
+    activePathIds: [],
+    constellationTitle: "",
+    cursorWX: 0,
+    cursorWY: 0,
+    bursts: [],
+    lastTapTime: 0,
+  });
 
   // Smooth camera state with inertia + pinch/wheel zoom
   const camRef = useRef({
@@ -31,12 +92,50 @@ export default function SonicConstellationMap({ songs: propSongs }) {
     camStartY: 0,
     movedDistance: 0,
     pinchDist: null,
-    mouseX: 0,
-    mouseY: 0,
+    downNode: null,
   });
 
+  // Always keep full library available so charting a 3-star path doesn't hide other stars
+  useEffect(() => {
+    if (propSongs && propSongs.length > 0) {
+      setCatalogSongs(propSongs);
+      return;
+    }
+    let mounted = true;
+    fetch("/api/songs/all")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!mounted) return;
+        const list = Array.isArray(data?.songs) ? data.songs : Array.isArray(data) ? data : [];
+        if (list.length > 0) setCatalogSongs(list);
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, [propSongs]);
+
+  // Restore saved custom constellation path if available
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("musio-voyager-path");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed.ids) && parsed.ids.length >= 2) {
+          voyagerRef.current.activePathIds = parsed.ids;
+          voyagerRef.current.constellationTitle = parsed.title || "VOYAGER ARC";
+        }
+      }
+    } catch {}
+  }, []);
+
   const currentSong = currentIndex >= 0 ? playlist[currentIndex] : null;
-  const activeSongs = propSongs && propSongs.length > 0 ? propSongs : playlist;
+  const activeSongs =
+    propSongs && propSongs.length > 0
+      ? propSongs
+      : catalogSongs.length > 0
+      ? catalogSongs
+      : playlist;
 
   // Build organic constellation clusters
   const { nodes, edges } = useMemo(() => {
@@ -123,6 +222,19 @@ export default function SonicConstellationMap({ songs: propSongs }) {
     return { nodes: computedNodes, edges: computedEdges };
   }, [activeSongs]);
 
+  // Smoothly glide camera when the active song changes along a Voyager Flight Path
+  useEffect(() => {
+    if (!currentSong?._id || !nodes.length) return;
+    const vIds = voyagerRef.current.activePathIds;
+    if (vIds.includes(currentSong._id)) {
+      const targetNode = nodes.find((n) => n.id === currentSong._id);
+      if (targetNode) {
+        camRef.current.targetX = -targetNode.baseX * camRef.current.targetZoom;
+        camRef.current.targetY = -targetNode.baseY * camRef.current.targetZoom;
+      }
+    }
+  }, [currentSong?._id, nodes]);
+
   /* ── 60fps Celestial Planetarium Render Loop ── */
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -153,6 +265,9 @@ export default function SonicConstellationMap({ songs: propSongs }) {
       phase: Math.random() * Math.PI * 2,
     }));
 
+    // Ion trail particles emitted by the Voyager probe
+    const probeTrail = [];
+
     // Occasional faint shooting star
     let meteor = null;
 
@@ -176,6 +291,8 @@ export default function SonicConstellationMap({ songs: propSongs }) {
       t += 0.016;
 
       const cam = camRef.current;
+      const voyager = voyagerRef.current;
+
       // Silky camera damping
       cam.x += (cam.targetX - cam.x) * 0.085;
       cam.y += (cam.targetY - cam.y) * 0.085;
@@ -293,7 +410,7 @@ export default function SonicConstellationMap({ songs: propSongs }) {
           Math.sin(t * node.floatSpeed * 1.3 + node.phase) * 3.8;
       });
 
-      // 6. Constellation Filaments & Traveling Photon Pulses
+      // 6. Natural Constellation Filaments & Traveling Photon Pulses
       edges.forEach((edge) => {
         const n1 = nodeMap.get(edge.from);
         const n2 = nodeMap.get(edge.to);
@@ -307,32 +424,223 @@ export default function SonicConstellationMap({ songs: propSongs }) {
 
         const baseAlpha = edge.primary
           ? isEdgeActive
-            ? 0.42
-            : 0.16
-          : 0.05;
+            ? 0.38
+            : 0.14
+          : 0.045;
 
         ctx.beginPath();
         ctx.moveTo(n1.x, n1.y);
         ctx.lineTo(n2.x, n2.y);
         ctx.strokeStyle = `rgba(${edge.rgb}, ${baseAlpha})`;
-        ctx.lineWidth = (edge.primary ? 1.15 : 0.75) / Math.sqrt(cam.zoom);
+        ctx.lineWidth = (edge.primary ? 1.1 : 0.7) / Math.sqrt(cam.zoom);
         ctx.stroke();
 
-        // Subtle luminous photon traveling along primary constellation lines
         if (edge.primary) {
           const prog = (t * 0.16 + edge.pulseOffset) % 1;
           const px = n1.x + (n2.x - n1.x) * prog;
           const py = n1.y + (n2.y - n1.y) * prog;
-          const pAlpha = Math.sin(prog * Math.PI) * 0.55;
+          const pAlpha = Math.sin(prog * Math.PI) * 0.52;
 
           ctx.fillStyle = `rgba(${edge.rgb}, ${pAlpha.toFixed(3)})`;
           ctx.beginPath();
-          ctx.arc(px, py, 1.6, 0, Math.PI * 2);
+          ctx.arc(px, py, 1.5, 0, Math.PI * 2);
           ctx.fill();
         }
       });
 
-      // 7. Drifting Foreground Cosmic Dust Motes
+      // 7. VOYAGER FLIGHT PATH & CUSTOM CONSTELLATION RENDERING
+      const displayPathIds =
+        voyager.isDrawing && voyager.draftIds.length > 0
+          ? voyager.draftIds
+          : voyager.activePathIds;
+
+      const pathNodes = displayPathIds.map((id) => nodeMap.get(id)).filter(Boolean);
+
+      if (pathNodes.length >= 1) {
+        // Draw connected trajectory segments
+        if (pathNodes.length >= 2) {
+          // Soft outer trajectory glow
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(pathNodes[0].x, pathNodes[0].y);
+          for (let i = 1; i < pathNodes.length; i++) {
+            ctx.lineTo(pathNodes[i].x, pathNodes[i].y);
+          }
+          ctx.strokeStyle = "rgba(255, 175, 75, 0.22)";
+          ctx.lineWidth = 5 / Math.sqrt(cam.zoom);
+          ctx.stroke();
+
+          // Crisp animated trajectory beam
+          ctx.beginPath();
+          ctx.moveTo(pathNodes[0].x, pathNodes[0].y);
+          for (let i = 1; i < pathNodes.length; i++) {
+            ctx.lineTo(pathNodes[i].x, pathNodes[i].y);
+          }
+          ctx.setLineDash([7 / cam.zoom, 5 / cam.zoom]);
+          ctx.lineDashOffset = -t * 18;
+          ctx.strokeStyle = "rgba(255, 215, 130, 0.85)";
+          ctx.lineWidth = 1.5 / Math.sqrt(cam.zoom);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+
+          // Render Custom Constellation Mythic Inscription at centroid
+          if (!voyager.isDrawing && voyager.constellationTitle) {
+            let cx = 0,
+              cy = 0;
+            pathNodes.forEach((n) => {
+              cx += n.x;
+              cy += n.y;
+            });
+            cx /= pathNodes.length;
+            cy /= pathNodes.length;
+
+            ctx.save();
+            ctx.textAlign = "center";
+            ctx.fillStyle = "rgba(255, 215, 150, 0.42)";
+            ctx.font = "500 9.5px 'Space Grotesk', sans-serif";
+            ctx.fillText(`✦  ${voyager.constellationTitle}  ✦`, cx, cy - 22);
+            ctx.restore();
+          }
+        }
+
+        // Elastic live laser line while user is actively dragging from star to star
+        if (voyager.isDrawing) {
+          const lastNode = pathNodes[pathNodes.length - 1];
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(lastNode.x, lastNode.y);
+          ctx.lineTo(voyager.cursorWX, voyager.cursorWY);
+          ctx.setLineDash([4 / cam.zoom, 4 / cam.zoom]);
+          ctx.strokeStyle = "rgba(56, 189, 248, 0.78)";
+          ctx.lineWidth = 1.4 / Math.sqrt(cam.zoom);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // Cursor reticle in world space
+          ctx.beginPath();
+          ctx.arc(voyager.cursorWX, voyager.cursorWY, 5 / cam.zoom, 0, Math.PI * 2);
+          ctx.strokeStyle = "rgba(56, 189, 248, 0.8)";
+          ctx.lineWidth = 1 / cam.zoom;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // LIVE VOYAGER SPACECRAFT PROBE traveling along active segment
+        if (!voyager.isDrawing && pathNodes.length >= 2) {
+          const activeHopIdx = pathNodes.findIndex((n) => n.id === currentSong?._id);
+          const fromIdx = activeHopIdx >= 0 ? activeHopIdx : 0;
+          const toIdx = (fromIdx + 1) % pathNodes.length;
+
+          // Only travel if there is a next waypoint (or loop around)
+          if (fromIdx < pathNodes.length - 1 || pathNodes.length >= 2) {
+            const fromStar = pathNodes[fromIdx];
+            const toStar = pathNodes[toIdx];
+
+            const el = audioElementRef?.current;
+            const dur = el?.duration || 0;
+            const cur = el?.currentTime || 0;
+            const songProg =
+              dur > 0 && isFinite(dur)
+                ? Math.max(0, Math.min(1, cur / dur))
+                : (t * 0.08) % 1;
+
+            const px = fromStar.x + (toStar.x - fromStar.x) * songProg;
+            const py = fromStar.y + (toStar.y - fromStar.y) * songProg;
+            const angle = Math.atan2(toStar.y - fromStar.y, toStar.x - fromStar.x);
+
+            // Spawn subtle ion exhaust particles behind the probe
+            if (isPlaying && Math.random() < 0.65) {
+              probeTrail.push({
+                x: px - Math.cos(angle) * 5 + (Math.random() - 0.5) * 2.5,
+                y: py - Math.sin(angle) * 5 + (Math.random() - 0.5) * 2.5,
+                vx: -Math.cos(angle) * 0.4 + (Math.random() - 0.5) * 0.2,
+                vy: -Math.sin(angle) * 0.4 + (Math.random() - 0.5) * 0.2,
+                life: 1,
+              });
+            }
+
+            // Draw ion trail
+            for (let i = probeTrail.length - 1; i >= 0; i--) {
+              const pt = probeTrail[i];
+              pt.x += pt.vx;
+              pt.y += pt.vy;
+              pt.life -= 0.032;
+              if (pt.life <= 0) {
+                probeTrail.splice(i, 1);
+                continue;
+              }
+              ctx.fillStyle = `rgba(56, 189, 248, ${(pt.life * 0.65).toFixed(3)})`;
+              ctx.beginPath();
+              ctx.arc(pt.x, pt.y, 1.4 * pt.life, 0, Math.PI * 2);
+              ctx.fill();
+            }
+
+            // Draw Voyager Probe Halo & Geometric Diamond Craft
+            const pHalo = ctx.createRadialGradient(px, py, 0.5, px, py, 16);
+            pHalo.addColorStop(0, "rgba(56, 189, 248, 0.85)");
+            pHalo.addColorStop(0.5, "rgba(255, 190, 90, 0.25)");
+            pHalo.addColorStop(1, "rgba(0, 0, 0, 0)");
+            ctx.fillStyle = pHalo;
+            ctx.beginPath();
+            ctx.arc(px, py, 16, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Expanding telemetry pulse ring around probe
+            const pulseR = 5 + ((t * 12) % 14);
+            const pulseA = Math.max(0, 1 - (pulseR - 5) / 14) * 0.45;
+            ctx.beginPath();
+            ctx.arc(px, py, pulseR, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(56, 189, 248, ${pulseA.toFixed(3)})`;
+            ctx.lineWidth = 1 / cam.zoom;
+            ctx.stroke();
+
+            // Geometric Spacecraft Silhouette
+            ctx.save();
+            ctx.translate(px, py);
+            ctx.rotate(angle);
+            ctx.fillStyle = "#FFFFFF";
+            ctx.beginPath();
+            ctx.moveTo(6.5, 0);
+            ctx.lineTo(-4.5, -3.6);
+            ctx.lineTo(-2.2, 0);
+            ctx.lineTo(-4.5, 3.6);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+
+            // Subtle Probe Telemetry Whisper
+            ctx.save();
+            ctx.fillStyle = "rgba(165, 230, 255, 0.72)";
+            ctx.font = "500 8.5px 'Space Grotesk', sans-serif";
+            ctx.textAlign = "left";
+            ctx.fillText(
+              `VOYAGER · ${Math.round(songProg * 100)}%`,
+              px + 10,
+              py - 7
+            );
+            ctx.restore();
+          }
+        }
+      }
+
+      // Stardust lock-in burst particles when charting waypoints
+      for (let i = voyager.bursts.length - 1; i >= 0; i--) {
+        const b = voyager.bursts[i];
+        b.x += b.vx;
+        b.y += b.vy;
+        b.life -= 0.03;
+        if (b.life <= 0) {
+          voyager.bursts.splice(i, 1);
+          continue;
+        }
+        ctx.fillStyle = `rgba(255, 215, 120, ${b.life.toFixed(3)})`;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, 1.8 * b.life, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 8. Drifting Foreground Cosmic Dust Motes
       dustMotes.forEach((dm) => {
         dm.x += dm.vx;
         dm.y += dm.vy;
@@ -346,13 +654,28 @@ export default function SonicConstellationMap({ songs: propSongs }) {
         ctx.fill();
       });
 
-      // 8. Song Stars, 4-Point Celestial Flares & Floating Astronomical Labels
+      // 9. Song Stars, 4-Point Celestial Flares, Waypoint Rings & Floating Labels
+      let activeStarScreenPos = null;
+
       nodes.forEach((node) => {
         const isCurrent = currentSong?._id === node.id;
         const isHovered = hoveredNodeIdRef.current === node.id;
+        const waypointIdx = displayPathIds.indexOf(node.id);
+        const isWaypoint = waypointIdx !== -1;
+
         const breathe = 0.88 + 0.24 * Math.sin(t * 1.4 + node.phase);
         const musicLift = isCurrent && isPlaying ? audio.bass * 2.5 : 0;
-        const r = node.radius * breathe + (isCurrent ? 1.6 + musicLift : isHovered ? 1.2 : 0);
+        const r =
+          node.radius * breathe +
+          (isCurrent ? 1.6 + musicLift : isHovered || isWaypoint ? 1.1 : 0);
+
+        if (isCurrent) {
+          activeStarScreenPos = {
+            sx: width / 2 + cam.x + node.x * cam.zoom,
+            sy: height / 2 + cam.y + node.y * cam.zoom,
+            rgb: node.theme.rgb,
+          };
+        }
 
         // Delicate expanding celestial ripple rings on active playing star
         if (isCurrent && isPlaying) {
@@ -367,8 +690,29 @@ export default function SonicConstellationMap({ songs: propSongs }) {
           }
         }
 
+        // Golden Orbital Waypoint Ring if part of Voyager Flight Path
+        if (isWaypoint) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, r + 6.5, 0, Math.PI * 2);
+          ctx.strokeStyle = "rgba(255, 210, 115, 0.72)";
+          ctx.lineWidth = 1.1 / cam.zoom;
+          ctx.stroke();
+
+          // Roman numeral waypoint marker
+          ctx.fillStyle = "#FFD580";
+          ctx.font = "600 9px 'Space Grotesk', sans-serif";
+          ctx.textAlign = "right";
+          ctx.fillText(
+            ROMAN[waypointIdx] || `${waypointIdx + 1}`,
+            node.x - r - 8,
+            node.y + 3
+          );
+          ctx.restore();
+        }
+
         // Soft Radial Star Halo
-        const haloR = r * (isCurrent || isHovered ? 6.5 : 4.2);
+        const haloR = r * (isCurrent || isHovered ? 6.5 : isWaypoint ? 5.2 : 4.2);
         const halo = ctx.createRadialGradient(
           node.x,
           node.y,
@@ -377,8 +721,14 @@ export default function SonicConstellationMap({ songs: propSongs }) {
           node.y,
           haloR
         );
-        halo.addColorStop(0, `rgba(${node.theme.rgb}, ${isCurrent || isHovered ? 0.75 : 0.42})`);
-        halo.addColorStop(0.45, `rgba(${node.theme.rgb}, ${isCurrent || isHovered ? 0.22 : 0.1})`);
+        halo.addColorStop(
+          0,
+          `rgba(${node.theme.rgb}, ${isCurrent || isHovered ? 0.75 : 0.42})`
+        );
+        halo.addColorStop(
+          0.45,
+          `rgba(${node.theme.rgb}, ${isCurrent || isHovered ? 0.22 : 0.1})`
+        );
         halo.addColorStop(1, "rgba(0,0,0,0)");
         ctx.fillStyle = halo;
         ctx.beginPath();
@@ -403,12 +753,16 @@ export default function SonicConstellationMap({ songs: propSongs }) {
         ctx.fill();
 
         // Minimal Astronomical Typography (No Boxes!)
-        const labelAlpha = isCurrent || isHovered ? 0.96 : 0.58;
+        const labelAlpha = isCurrent || isHovered || isWaypoint ? 0.96 : 0.58;
         ctx.textAlign = "left";
         ctx.fillStyle = isCurrent
           ? "#FF7A33"
+          : isWaypoint
+          ? "#FFE4A3"
           : `rgba(245, 247, 255, ${labelAlpha})`;
-        ctx.font = `${isCurrent || isHovered ? "600" : "400"} 11.5px 'Space Grotesk', sans-serif`;
+        ctx.font = `${
+          isCurrent || isHovered || isWaypoint ? "600" : "400"
+        } 11.5px 'Space Grotesk', sans-serif`;
 
         const titleText =
           node.song.title.length > 22 && !isCurrent && !isHovered
@@ -416,7 +770,7 @@ export default function SonicConstellationMap({ songs: propSongs }) {
             : node.song.title;
         ctx.fillText(titleText, node.x + r + 8, node.y + 3);
 
-        if (isCurrent || isHovered) {
+        if (isCurrent || isHovered || isWaypoint) {
           ctx.fillStyle = "rgba(180, 190, 215, 0.72)";
           ctx.font = "400 9.5px 'Inter', sans-serif";
           ctx.fillText(
@@ -428,15 +782,46 @@ export default function SonicConstellationMap({ songs: propSongs }) {
       });
 
       ctx.restore();
+
+      // 10. Off-Screen Singing Star Compass Beacon (if user pans away from playing star)
+      if (activeStarScreenPos) {
+        const { sx, sy, rgb } = activeStarScreenPos;
+        const pad = 36;
+        if (sx < pad || sx > width - pad || sy < 70 || sy > height - pad) {
+          const angle = Math.atan2(sy - height / 2, sx - width / 2);
+          const bx = Math.max(pad, Math.min(width - pad, width / 2 + Math.cos(angle) * (width * 0.44)));
+          const by = Math.max(82, Math.min(height - pad, height / 2 + Math.sin(angle) * (height * 0.42)));
+
+          const bg = ctx.createRadialGradient(bx, by, 1, bx, by, 22);
+          bg.addColorStop(0, `rgba(${rgb}, 0.75)`);
+          bg.addColorStop(1, "rgba(0,0,0,0)");
+          ctx.fillStyle = bg;
+          ctx.beginPath();
+          ctx.arc(bx, by, 22, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // 11. Whisper-Faint Planetarium Sky Inscription at Bottom (Zero Boxy UI)
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.font = "400 10.5px 'Space Grotesk', sans-serif";
+      ctx.fillStyle = "rgba(205, 218, 245, 0.34)";
+      const bottomHint =
+        voyager.activePathIds.length >= 2
+          ? `✦  ${voyager.constellationTitle} (${voyager.activePathIds.length} STARS CHARTED)  ·  DRAG STAR-TO-STAR TO RECHART  ·  DOUBLE-TAP SKY TO CLEAR  ✦`
+          : "DRAG SKY TO EXPLORE   ·   TAP STAR TO PLAY   ·   DRAG STAR-TO-STAR TO CHART VOYAGER FLIGHT PATH";
+      ctx.fillText(bottomHint, width / 2, height - 22);
+      ctx.restore();
     });
 
     return () => {
       unsubscribe();
       window.removeEventListener("resize", resize);
     };
-  }, [nodes, edges, currentSong?._id, isPlaying, subscribeAudio]);
+  }, [nodes, edges, currentSong?._id, isPlaying, subscribeAudio, audioElementRef]);
 
-  /* ── Smooth Pan, Pinch-to-Zoom, Wheel Zoom & Star Selection ── */
+  /* ── Smooth Pan, Pinch-to-Zoom, & Voyager Star-to-Star Trajectory Charting ── */
   const screenToWorld = (clientX, clientY) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return { wx: 0, wy: 0 };
@@ -463,48 +848,155 @@ export default function SonicConstellationMap({ songs: propSongs }) {
     return closest;
   };
 
+  const spawnStarBurst = (wx, wy) => {
+    for (let i = 0; i < 14; i++) {
+      const a = (i / 14) * Math.PI * 2;
+      const sp = 0.6 + Math.random() * 1.6;
+      voyagerRef.current.bursts.push({
+        x: wx,
+        y: wy,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life: 1,
+      });
+    }
+  };
+
+  const finalizeInteraction = (clientX, clientY, tapRadius = 30) => {
+    const cam = camRef.current;
+    const voyager = voyagerRef.current;
+
+    // If user traced a Voyager Flight Path across 2+ stars
+    if (voyager.isDrawing && voyager.draftIds.length >= 2) {
+      const lockedIds = [...voyager.draftIds];
+      const queuedNodes = lockedIds
+        .map((id) => nodes.find((n) => n.id === id))
+        .filter(Boolean);
+
+      const firstArtist = (queuedNodes[0]?.song?.artist || "").trim().split(" ")[0].toUpperCase();
+      const mythic = MYTHIC_NAMES[lockedIds.length % MYTHIC_NAMES.length];
+      const title =
+        firstArtist && firstArtist !== "UNKNOWN"
+          ? `${firstArtist} · ${mythic} ARC`
+          : `CONSTELLATION ${mythic}-${ROMAN[lockedIds.length - 1] || lockedIds.length}`;
+
+      voyager.activePathIds = lockedIds;
+      voyager.constellationTitle = title;
+      voyager.isDrawing = false;
+      voyager.draftIds = [];
+
+      try {
+        localStorage.setItem(
+          "musio-voyager-path",
+          JSON.stringify({ ids: lockedIds, title })
+        );
+      } catch {}
+
+      // Queue the exact traced sequence of songs and start from Star I
+      const queuedSongs = queuedNodes.map((n) => n.song);
+      if (queuedSongs.length > 0) {
+        playSong(queuedSongs, 0);
+        cam.targetX = -queuedNodes[0].baseX * cam.targetZoom;
+        cam.targetY = -queuedNodes[0].baseY * cam.targetZoom;
+      }
+      cam.isDragging = false;
+      cam.downNode = null;
+      return;
+    }
+
+    voyager.isDrawing = false;
+    voyager.draftIds = [];
+
+    // Single tap/click
+    if (cam.movedDistance < 12) {
+      const hit = findHitNode(clientX, clientY, tapRadius);
+      if (hit) {
+        cam.targetX = -hit.baseX * cam.targetZoom;
+        cam.targetY = -hit.baseY * cam.targetZoom;
+        if (currentSong?._id === hit.id) {
+          setIsPlaying(!isPlaying);
+        } else {
+          playSong(activeSongs, hit.songIndex);
+        }
+      } else {
+        // Check for double-tap / double-click on empty sky to clear active Voyager Path
+        const now = Date.now();
+        if (now - voyager.lastTapTime < 340 && voyager.activePathIds.length > 0) {
+          voyager.activePathIds = [];
+          voyager.constellationTitle = "";
+          try {
+            localStorage.removeItem("musio-voyager-path");
+          } catch {}
+        }
+        voyager.lastTapTime = now;
+      }
+    }
+
+    cam.isDragging = false;
+    cam.downNode = null;
+  };
+
   const handleMouseDown = (e) => {
+    const hit = findHitNode(e.clientX, e.clientY, 26);
     camRef.current.isDragging = true;
     camRef.current.dragStartX = e.clientX;
     camRef.current.dragStartY = e.clientY;
     camRef.current.camStartX = camRef.current.targetX;
     camRef.current.camStartY = camRef.current.targetY;
     camRef.current.movedDistance = 0;
+    camRef.current.downNode = hit;
+
+    if (hit) {
+      const { wx, wy } = screenToWorld(e.clientX, e.clientY);
+      voyagerRef.current.draftIds = [hit.id];
+      voyagerRef.current.cursorWX = wx;
+      voyagerRef.current.cursorWY = wy;
+    }
   };
 
   const handleMouseMove = (e) => {
-    if (camRef.current.isDragging) {
-      const dx = e.clientX - camRef.current.dragStartX;
-      const dy = e.clientY - camRef.current.dragStartY;
-      camRef.current.movedDistance = Math.hypot(dx, dy);
-      camRef.current.targetX = camRef.current.camStartX + dx;
-      camRef.current.targetY = camRef.current.camStartY + dy;
+    const cam = camRef.current;
+    const voyager = voyagerRef.current;
+
+    if (cam.isDragging) {
+      const dx = e.clientX - cam.dragStartX;
+      const dy = e.clientY - cam.dragStartY;
+      cam.movedDistance = Math.hypot(dx, dy);
+
+      // If pointer started on a star, dragging charts a Voyager Flight Path!
+      if (cam.downNode) {
+        if (cam.movedDistance > 8 && !voyager.isDrawing) {
+          voyager.isDrawing = true;
+          playStarLockChime(0);
+          spawnStarBurst(cam.downNode.x, cam.downNode.y);
+        }
+        const { wx, wy } = screenToWorld(e.clientX, e.clientY);
+        voyager.cursorWX = wx;
+        voyager.cursorWY = wy;
+
+        const hoverStar = findHitNode(e.clientX, e.clientY, 32);
+        if (hoverStar && !voyager.draftIds.includes(hoverStar.id)) {
+          voyager.draftIds.push(hoverStar.id);
+          playStarLockChime(voyager.draftIds.length - 1);
+          spawnStarBurst(hoverStar.x, hoverStar.y);
+        }
+      } else {
+        // Normal empty-sky pan
+        cam.targetX = cam.camStartX + dx;
+        cam.targetY = cam.camStartY + dy;
+      }
     } else {
       const hit = findHitNode(e.clientX, e.clientY, 22);
       hoveredNodeIdRef.current = hit ? hit.id : null;
       if (canvasRef.current) {
-        canvasRef.current.style.cursor = hit ? "pointer" : "grab";
+        canvasRef.current.style.cursor = hit ? "crosshair" : "grab";
       }
     }
   };
 
   const handleMouseUp = (e) => {
     if (!camRef.current.isDragging) return;
-    camRef.current.isDragging = false;
-
-    if (camRef.current.movedDistance < 8) {
-      const hit = findHitNode(e.clientX, e.clientY, 28);
-      if (hit) {
-        // Glide camera smoothly to center on the chosen star
-        camRef.current.targetX = -hit.baseX * camRef.current.targetZoom;
-        camRef.current.targetY = -hit.baseY * camRef.current.targetZoom;
-        if (currentSong?._id === hit.id) {
-          setIsPlaying(!isPlaying);
-        } else {
-          playSong(activeSongs, hit.songIndex);
-        }
-      }
-    }
+    finalizeInteraction(e.clientX, e.clientY, 28);
   };
 
   const handleTouchStart = (e) => {
@@ -515,59 +1007,77 @@ export default function SonicConstellationMap({ songs: propSongs }) {
       );
       camRef.current.pinchDist = d;
       camRef.current.isDragging = false;
+      voyagerRef.current.isDrawing = false;
       return;
     }
     if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      const hit = findHitNode(touch.clientX, touch.clientY, 34);
       camRef.current.isDragging = true;
-      camRef.current.dragStartX = e.touches[0].clientX;
-      camRef.current.dragStartY = e.touches[0].clientY;
+      camRef.current.dragStartX = touch.clientX;
+      camRef.current.dragStartY = touch.clientY;
       camRef.current.camStartX = camRef.current.targetX;
       camRef.current.camStartY = camRef.current.targetY;
       camRef.current.movedDistance = 0;
+      camRef.current.downNode = hit;
+
+      if (hit) {
+        const { wx, wy } = screenToWorld(touch.clientX, touch.clientY);
+        voyagerRef.current.draftIds = [hit.id];
+        voyagerRef.current.cursorWX = wx;
+        voyagerRef.current.cursorWY = wy;
+      }
     }
   };
 
   const handleTouchMove = (e) => {
-    if (e.touches.length === 2 && camRef.current.pinchDist) {
+    const cam = camRef.current;
+    const voyager = voyagerRef.current;
+
+    if (e.touches.length === 2 && cam.pinchDist) {
       const d = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
         e.touches[0].clientY - e.touches[1].clientY
       );
-      const scaleDelta = (d - camRef.current.pinchDist) * 0.004;
-      camRef.current.targetZoom = Math.max(
-        0.45,
-        Math.min(2.6, camRef.current.targetZoom + scaleDelta)
-      );
-      camRef.current.pinchDist = d;
+      const scaleDelta = (d - cam.pinchDist) * 0.004;
+      cam.targetZoom = Math.max(0.45, Math.min(2.6, cam.targetZoom + scaleDelta));
+      cam.pinchDist = d;
       return;
     }
-    if (e.touches.length === 1 && camRef.current.isDragging) {
-      const dx = e.touches[0].clientX - camRef.current.dragStartX;
-      const dy = e.touches[0].clientY - camRef.current.dragStartY;
-      camRef.current.movedDistance = Math.hypot(dx, dy);
-      camRef.current.targetX = camRef.current.camStartX + dx;
-      camRef.current.targetY = camRef.current.camStartY + dy;
+    if (e.touches.length === 1 && cam.isDragging) {
+      const touch = e.touches[0];
+      const dx = touch.clientX - cam.dragStartX;
+      const dy = touch.clientY - cam.dragStartY;
+      cam.movedDistance = Math.hypot(dx, dy);
+
+      if (cam.downNode) {
+        if (cam.movedDistance > 10 && !voyager.isDrawing) {
+          voyager.isDrawing = true;
+          playStarLockChime(0);
+          spawnStarBurst(cam.downNode.x, cam.downNode.y);
+        }
+        const { wx, wy } = screenToWorld(touch.clientX, touch.clientY);
+        voyager.cursorWX = wx;
+        voyager.cursorWY = wy;
+
+        const hoverStar = findHitNode(touch.clientX, touch.clientY, 36);
+        if (hoverStar && !voyager.draftIds.includes(hoverStar.id)) {
+          voyager.draftIds.push(hoverStar.id);
+          playStarLockChime(voyager.draftIds.length - 1);
+          spawnStarBurst(hoverStar.x, hoverStar.y);
+        }
+      } else {
+        cam.targetX = cam.camStartX + dx;
+        cam.targetY = cam.camStartY + dy;
+      }
     }
   };
 
   const handleTouchEnd = (e) => {
     camRef.current.pinchDist = null;
     if (!camRef.current.isDragging) return;
-    camRef.current.isDragging = false;
-
-    if (camRef.current.movedDistance < 12 && e.changedTouches.length > 0) {
-      const t = e.changedTouches[0];
-      const hit = findHitNode(t.clientX, t.clientY, 34);
-      if (hit) {
-        camRef.current.targetX = -hit.baseX * camRef.current.targetZoom;
-        camRef.current.targetY = -hit.baseY * camRef.current.targetZoom;
-        if (currentSong?._id === hit.id) {
-          setIsPlaying(!isPlaying);
-        } else {
-          playSong(activeSongs, hit.songIndex);
-        }
-      }
-    }
+    const t = e.changedTouches?.[0];
+    finalizeInteraction(t ? t.clientX : 0, t ? t.clientY : 0, 36);
   };
 
   const handleWheel = (e) => {
@@ -600,6 +1110,9 @@ export default function SonicConstellationMap({ songs: propSongs }) {
         onMouseUp={handleMouseUp}
         onMouseLeave={() => {
           camRef.current.isDragging = false;
+          camRef.current.downNode = null;
+          voyagerRef.current.isDrawing = false;
+          voyagerRef.current.draftIds = [];
           hoveredNodeIdRef.current = null;
         }}
         onTouchStart={handleTouchStart}

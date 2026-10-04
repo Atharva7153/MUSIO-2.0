@@ -445,9 +445,13 @@ export default function HomePage() {
                 {showAllSongs ? `All Tracks (${allSongs.length})` : "Recently Added"}
               </h2>
 
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 <Link href="/constellation" className="view-all-link">
                   ✦ Fullscreen Galaxy →
+                </Link>
+
+                <Link href="/deck" className="view-all-link">
+                  ◉ Analog Deck →
                 </Link>
 
                 {allSongs.length > 8 && (

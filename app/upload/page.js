@@ -133,7 +133,7 @@ export default function UploadPage() {
 
         if (!ytData.success) {
           setUploadStatus("error");
-          toast.error(ytData.error || "YouTube download failed");
+          toast.error(ytData.message || ytData.error || "YouTube download failed");
           setIsLoading(false);
           return;
         }
