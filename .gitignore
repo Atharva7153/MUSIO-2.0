@@ -40,6 +40,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local youtube backend project
-/MUSIO-2.0-yt-backend/
-MUSIO-2.0-yt-backend/
+# youtube backend ignored artifacts
+MUSIO-2.0-yt-backend/node_modules/
+MUSIO-2.0-yt-backend/.git-yt/
+MUSIO-2.0-yt-backend/.bin/
+MUSIO-2.0-yt-backend/*.log
+MUSIO-2.0-yt-backend/yt-song-*
