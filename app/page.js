@@ -7,6 +7,179 @@ import AddToPlaylistModal from "./components/AddToPlaylistModal";
 import { motion } from "framer-motion";
 import { gsap } from "gsap";
 
+/* ── 60fps Music-Reactive Sonic Canvas behind Hero Title ── */
+function HeroSonicCanvas() {
+  const canvasRef = useRef(null);
+  const { subscribeAudio, isPlaying } = usePlayer();
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    let width = 0;
+    let height = 0;
+    let phase = 0;
+
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      width = rect.width;
+      height = rect.height;
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+
+    resize();
+    window.addEventListener("resize", resize);
+
+    const unsubscribe = subscribeAudio((audio) => {
+      if (!width || !height) return;
+      ctx.clearRect(0, 0, width, height);
+
+      const isDark =
+        document.documentElement.getAttribute("data-theme") === "dark" ||
+        document.documentElement.classList.contains("dark");
+
+      phase += isPlaying ? 0.045 + audio.energy * 0.08 : 0.012;
+      const cy = height * 0.52;
+
+      // 1. Subtle symmetrical frequency bars across center horizon
+      const barCount = 48;
+      const totalBarSpan = Math.min(width * 0.82, 760);
+      const startX = (width - totalBarSpan) / 2;
+      const step = totalBarSpan / barCount;
+
+      for (let i = 0; i < barCount; i++) {
+        // Mirror from center outward so bass is in the center behind MUSIO 2.0
+        const distFromCenter = Math.abs(i - barCount / 2) / (barCount / 2);
+        const binIdx = Math.min(63, Math.floor(distFromCenter * 42));
+        const val = audio.bins[binIdx] || 0.04;
+        const barH = Math.max(4, val * (height * 0.58) * (1 - distFromCenter * 0.35));
+        const x = startX + i * step + step * 0.5;
+
+        if (isDark) {
+          const hue = (i * 5 + phase * 25) % 360;
+          ctx.fillStyle = `hsla(${hue}, 90%, 62%, ${0.16 + val * 0.38})`;
+        } else {
+          ctx.fillStyle = `rgba(255, 85, 0, ${0.12 + val * 0.34})`;
+        }
+
+        ctx.beginPath();
+        ctx.roundRect(x - 2, cy - barH / 2, 4, barH, 99);
+        ctx.fill();
+      }
+
+      // 2. Flowing harmonic sine ribbons
+      const waves = isDark
+        ? [
+            { color: "rgba(255, 85, 0, 0.42)", amp: 34, freq: 0.008, speed: 1.0 },
+            { color: "rgba(168, 85, 247, 0.38)", amp: 26, freq: 0.011, speed: -1.3 },
+            { color: "rgba(6, 182, 212, 0.34)", amp: 20, freq: 0.014, speed: 0.8 },
+          ]
+        : [
+            { color: "rgba(255, 85, 0, 0.38)", amp: 32, freq: 0.008, speed: 1.0 },
+            { color: "rgba(255, 136, 0, 0.26)", amp: 24, freq: 0.011, speed: -1.2 },
+            { color: "rgba(255, 59, 48, 0.18)", amp: 18, freq: 0.014, speed: 0.8 },
+          ];
+
+      waves.forEach((w, idx) => {
+        ctx.beginPath();
+        ctx.strokeStyle = w.color;
+        ctx.lineWidth = 2;
+
+        const dynamicAmp = w.amp * (0.22 + audio.bass * 1.45);
+        for (let x = 0; x <= width; x += 6) {
+          const normX = x / width;
+          const envelope = Math.sin(normX * Math.PI); // Taper at edges
+          const y =
+            cy +
+            Math.sin(x * w.freq + phase * w.speed + idx) * dynamicAmp * envelope +
+            Math.cos(x * w.freq * 2.1 - phase * 0.7) * (dynamicAmp * 0.35) * envelope;
+
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      });
+    });
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener("resize", resize);
+    };
+  }, [subscribeAudio, isPlaying]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: "absolute",
+        inset: 0,
+        width: "100%",
+        height: "100%",
+        pointerEvents: "none",
+      }}
+    />
+  );
+}
+
+/* ── Mini Reactive Spectrum Overlay for Playing Card ── */
+function CardReactiveMiniBars({ active }) {
+  const wrapRef = useRef(null);
+  const { subscribeAudio } = usePlayer();
+
+  useEffect(() => {
+    if (!active) return;
+    const unsub = subscribeAudio((audio) => {
+      if (!wrapRef.current) return;
+      const bars = wrapRef.current.children;
+      const indices = [2, 6, 12, 18, 26];
+      for (let i = 0; i < bars.length; i++) {
+        const v = Math.max(0.18, audio.bins[indices[i]] || 0.2);
+        bars[i].style.transform = `scaleY(${v.toFixed(2)})`;
+      }
+    });
+    return unsub;
+  }, [active, subscribeAudio]);
+
+  if (!active) return null;
+
+  return (
+    <div
+      ref={wrapRef}
+      style={{
+        position: "absolute",
+        bottom: 12,
+        left: 12,
+        display: "flex",
+        alignItems: "flex-end",
+        gap: 3,
+        height: 20,
+        padding: "4px 7px",
+        borderRadius: 8,
+        background: "rgba(10, 10, 14, 0.72)",
+        backdropFilter: "blur(6px)",
+      }}
+    >
+      {[0, 1, 2, 3, 4].map((i) => (
+        <span
+          key={i}
+          className="rainbow-bar"
+          style={{
+            width: 3,
+            height: "100%",
+            borderRadius: 99,
+            transformOrigin: "bottom",
+            transform: "scaleY(0.25)",
+            display: "inline-block",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function SongCard({ song, onPlay, onAddToPlaylist, isCurrent, isPlaying, index }) {
   return (
     <motion.div
@@ -15,14 +188,13 @@ function SongCard({ song, onPlay, onAddToPlaylist, isCurrent, isPlaying, index }
       transition={{ duration: 0.35, delay: Math.min(index * 0.04, 0.3) }}
       whileHover={{ y: -5 }}
       onClick={onPlay}
-      className="surface-card"
+      className={`surface-card ${isCurrent && isPlaying ? "playing-card" : ""}`}
       style={{
         cursor: "pointer",
         padding: 12,
         display: "flex",
         flexDirection: "column",
         gap: 12,
-        borderColor: isCurrent ? "var(--accent-primary)" : undefined,
       }}
     >
       {/* Cover Art */}
@@ -46,13 +218,17 @@ function SongCard({ song, onPlay, onAddToPlaylist, isCurrent, isPlaying, index }
             height: "100%",
             objectFit: "cover",
             display: "block",
-            transition: "transform 0.4s ease",
+            transform: isCurrent && isPlaying ? "scale(var(--music-scale, 1))" : "scale(1)",
+            transition: "transform 0.1s linear",
           }}
         />
 
-        {/* Floating Play Button Badge */}
+        {/* Live Music-Reactive Mini Bars on Currently Playing Card */}
+        <CardReactiveMiniBars active={isCurrent && isPlaying} />
+
+        {/* Play/Pause Badge */}
         <div
-          className="rainbow-bar"
+          className={`rainbow-bar ${isCurrent && isPlaying ? "music-reactive-pulse" : ""}`}
           style={{
             position: "absolute",
             bottom: 10,
@@ -78,7 +254,7 @@ function SongCard({ song, onPlay, onAddToPlaylist, isCurrent, isPlaying, index }
           )}
         </div>
 
-        {/* Add to Playlist Quick Action */}
+        {/* Add to Playlist Button */}
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -146,66 +322,38 @@ export default function HomePage() {
   const [showAllSongs, setShowAllSongs] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [modalSong, setModalSong] = useState(null);
-  const { playSong, playlist: activeQueue, currentIndex, isPlaying } = usePlayer();
+  const { playSong, playlist: activeQueue, currentIndex, isPlaying, subscribeAudio } = usePlayer();
 
   const currentSong = currentIndex >= 0 ? activeQueue[currentIndex] : null;
-  const heroRef = useRef(null);
-  const orb1Ref = useRef(null);
-  const orb2Ref = useRef(null);
-  const orb3Ref = useRef(null);
+  const heroTitleRef = useRef(null);
+  const heroGlowRef = useRef(null);
 
-  /* ── GSAP Ambient Orbs & Hero Entrance ── */
+  /* ── GSAP Entrance for Hero Title ── */
   useEffect(() => {
-    const ctx = gsap.context(() => {
-      if (orb1Ref.current) {
-        gsap.to(orb1Ref.current, {
-          x: 70,
-          y: -40,
-          scale: 1.12,
-          duration: 8,
-          repeat: -1,
-          yoyo: true,
-          ease: "sine.inOut",
-        });
-      }
-      if (orb2Ref.current) {
-        gsap.to(orb2Ref.current, {
-          x: -60,
-          y: 50,
-          scale: 0.92,
-          duration: 10,
-          repeat: -1,
-          yoyo: true,
-          ease: "sine.inOut",
-        });
-      }
-      if (orb3Ref.current) {
-        gsap.to(orb3Ref.current, {
-          x: 45,
-          y: 45,
-          scale: 1.08,
-          duration: 9,
-          repeat: -1,
-          yoyo: true,
-          ease: "sine.inOut",
-        });
-      }
-
-      gsap.fromTo(
-        ".gsap-hero-item",
-        { y: 24, opacity: 0 },
-        {
-          y: 0,
-          opacity: 1,
-          duration: 0.65,
-          stagger: 0.1,
-          ease: "power3.out",
-        }
-      );
-    }, heroRef);
-
-    return () => ctx.revert();
+    if (!heroTitleRef.current) return;
+    gsap.fromTo(
+      heroTitleRef.current,
+      { y: 28, opacity: 0, scale: 0.94 },
+      { y: 0, opacity: 1, scale: 1, duration: 0.85, ease: "power3.out" }
+    );
   }, []);
+
+  /* ── Subscribe Hero Title & Halo to Live Music Bass ── */
+  useEffect(() => {
+    const unsub = subscribeAudio((audio) => {
+      if (heroTitleRef.current) {
+        const s = 1 + audio.bass * 0.055;
+        heroTitleRef.current.style.transform = `scale(${s.toFixed(4)})`;
+      }
+      if (heroGlowRef.current) {
+        const opacity = 0.14 + audio.energy * 0.42;
+        const scale = 0.95 + audio.bass * 0.35;
+        heroGlowRef.current.style.opacity = opacity.toFixed(3);
+        heroGlowRef.current.style.transform = `translate(-50%, -50%) scale(${scale.toFixed(3)})`;
+      }
+    });
+    return unsub;
+  }, [subscribeAudio]);
 
   /* ── Fetch Playlists & Songs ── */
   useEffect(() => {
@@ -236,330 +384,76 @@ export default function HomePage() {
   }, []);
 
   const displayedSongs = showAllSongs ? allSongs : allSongs.slice(0, 8);
-  const totalPlaylistTracks = playlists.reduce(
-    (sum, pl) => sum + (pl.songs?.length || 0),
-    0
-  );
 
   return (
     <SplashScreen>
       <div className="page-content">
-        {/* ── HERO SECTION ── */}
+        {/* ── MINIMAL MUSIC-REACTIVE HERO SECTION: ONLY "MUSIO 2.0" ── */}
         <section
-          ref={heroRef}
           style={{
             position: "relative",
+            height: "clamp(240px, 38vh, 360px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             overflow: "hidden",
-            padding: "44px 20px 56px",
+            userSelect: "none",
           }}
         >
-          {/* GSAP Ambient Orbs (Solar Orange in Light Mode, Subtle Prismatic in Dark Mode) */}
+          {/* Reactive Ambient Halo */}
           <div
+            ref={heroGlowRef}
+            className="rainbow-bar"
             style={{
               position: "absolute",
-              inset: 0,
+              top: "50%",
+              left: "50%",
+              width: "clamp(260px, 45vw, 520px)",
+              height: "clamp(120px, 20vw, 220px)",
+              borderRadius: "50%",
+              filter: "blur(85px)",
+              opacity: 0.16,
+              transform: "translate(-50%, -50%) scale(1)",
               pointerEvents: "none",
-              overflow: "hidden",
-              zIndex: 0,
             }}
-            aria-hidden="true"
-          >
-            <div
-              ref={orb1Ref}
-              style={{
-                position: "absolute",
-                top: "-10%",
-                left: "8%",
-                width: 420,
-                height: 420,
-                borderRadius: "50%",
-                background: "var(--orb-1-color)",
-                filter: "blur(95px)",
-                opacity: "var(--orb-opacity)",
-              }}
-            />
-            <div
-              ref={orb2Ref}
-              style={{
-                position: "absolute",
-                top: "15%",
-                right: "6%",
-                width: 380,
-                height: 380,
-                borderRadius: "50%",
-                background: "var(--orb-2-color)",
-                filter: "blur(95px)",
-                opacity: "var(--orb-opacity)",
-              }}
-            />
-            <div
-              ref={orb3Ref}
-              style={{
-                position: "absolute",
-                bottom: "-15%",
-                left: "38%",
-                width: 340,
-                height: 340,
-                borderRadius: "50%",
-                background: "var(--orb-3-color)",
-                filter: "blur(95px)",
-                opacity: "var(--orb-opacity)",
-              }}
-            />
-          </div>
+          />
 
-          <div
+          {/* 60fps Live Audio Wave & Spectrum Canvas */}
+          <HeroSonicCanvas />
+
+          {/* Monumental Title: ONLY MUSIO 2.0 */}
+          <h1
+            ref={heroTitleRef}
             style={{
               position: "relative",
-              zIndex: 1,
-              maxWidth: 1080,
-              margin: "0 auto",
+              zIndex: 2,
+              fontFamily: "var(--font-display)",
+              fontSize: "clamp(3.2rem, 10vw, 7.2rem)",
+              fontWeight: 800,
+              letterSpacing: "-0.055em",
+              lineHeight: 1,
+              color: "var(--text-primary)",
+              textAlign: "center",
+              display: "flex",
+              alignItems: "baseline",
+              justifyContent: "center",
+              gap: "0.18em",
+              willChange: "transform",
             }}
           >
-            <div
-              className="surface-card"
-              style={{
-                padding: "clamp(28px, 5vw, 52px)",
-                background: "var(--bg-glass)",
-                backdropFilter: "blur(24px)",
-              }}
-            >
-              <div className="rainbow-line" style={{ position: "absolute", top: 0, left: 0, right: 0 }} />
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-                  gap: 32,
-                  alignItems: "center",
-                }}
-              >
-                {/* Left Column: Hero Copy & Actions */}
-                <div>
-                  <div
-                    className="gsap-hero-item"
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 8,
-                      padding: "6px 14px",
-                      borderRadius: 999,
-                      background: "var(--accent-soft)",
-                      border: "1px solid var(--accent-border)",
-                      fontFamily: "var(--font-display)",
-                      fontSize: "0.76rem",
-                      fontWeight: 700,
-                      color: "var(--accent-primary)",
-                      letterSpacing: "0.04em",
-                      textTransform: "uppercase",
-                      marginBottom: 18,
-                    }}
-                  >
-                    <span
-                      className="rainbow-bar"
-                      style={{ width: 8, height: 8, borderRadius: "50%" }}
-                    />
-                    High-Fidelity Audio Player
-                  </div>
-
-                  <h1
-                    className="gsap-hero-item"
-                    style={{
-                      fontFamily: "var(--font-display)",
-                      fontSize: "clamp(2.2rem, 5vw, 3.8rem)",
-                      fontWeight: 800,
-                      letterSpacing: "-0.04em",
-                      lineHeight: 1.06,
-                      marginBottom: 14,
-                    }}
-                  >
-                    Pure Sound on{" "}
-                    <span className="gradient-text">MUSIO 2.0</span>
-                  </h1>
-
-                  <p
-                    className="gsap-hero-item"
-                    style={{
-                      fontSize: "0.98rem",
-                      color: "var(--text-secondary)",
-                      maxWidth: 480,
-                      marginBottom: 26,
-                      lineHeight: 1.65,
-                    }}
-                  >
-                    Crafted by Atharva Sharma — stream your curated tracks and playlists with zero distractions, tactile controls, and dual Solar &amp; Prism themes.
-                  </p>
-
-                  <div
-                    className="gsap-hero-item"
-                    style={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: 12,
-                    }}
-                  >
-                    {allSongs.length > 0 && (
-                      <button
-                        onClick={() => playSong(allSongs, 0)}
-                        className="btn-primary"
-                      >
-                        <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
-                          <path d="M8 5v14l11-7z" />
-                        </svg>
-                        Play Library
-                      </button>
-                    )}
-                    <Link href="/upload" className={allSongs.length > 0 ? "btn-secondary" : "btn-primary"}>
-                      <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
-                        <path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z" />
-                      </svg>
-                      Upload Music
-                    </Link>
-                    <Link href="/playlists" className="btn-secondary">
-                      Browse Playlists
-                    </Link>
-                  </div>
-                </div>
-
-                {/* Right Column: Live Telemetry / Stats */}
-                <div
-                  className="gsap-hero-item"
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(2, 1fr)",
-                    gap: 12,
-                  }}
-                >
-                  <div
-                    style={{
-                      padding: 20,
-                      borderRadius: 16,
-                      background: "var(--bg-subtle)",
-                      border: "1px solid var(--border-subtle)",
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: "0.75rem",
-                        fontWeight: 600,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.06em",
-                        color: "var(--text-muted)",
-                        marginBottom: 6,
-                      }}
-                    >
-                      Tracks Ready
-                    </div>
-                    <div
-                      className="gradient-text"
-                      style={{
-                        fontFamily: "var(--font-display)",
-                        fontSize: "2.1rem",
-                        fontWeight: 800,
-                        lineHeight: 1.1,
-                      }}
-                    >
-                      {allSongs.length || totalPlaylistTracks}
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      padding: 20,
-                      borderRadius: 16,
-                      background: "var(--bg-subtle)",
-                      border: "1px solid var(--border-subtle)",
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: "0.75rem",
-                        fontWeight: 600,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.06em",
-                        color: "var(--text-muted)",
-                        marginBottom: 6,
-                      }}
-                    >
-                      Playlists
-                    </div>
-                    <div
-                      style={{
-                        fontFamily: "var(--font-display)",
-                        fontSize: "2.1rem",
-                        fontWeight: 800,
-                        color: "var(--text-primary)",
-                        lineHeight: 1.1,
-                      }}
-                    >
-                      {playlists.length}
-                    </div>
-                  </div>
-
-                  <Link
-                    href="/visualizer"
-                    style={{
-                      gridColumn: "span 2",
-                      padding: "16px 20px",
-                      borderRadius: 16,
-                      background: "var(--bg-subtle)",
-                      border: "1px solid var(--border-subtle)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      textDecoration: "none",
-                      transition: "border-color 0.2s ease",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <div
-                        className="rainbow-bar"
-                        style={{
-                          width: 38,
-                          height: 38,
-                          borderRadius: 10,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          color: "#FFF",
-                        }}
-                      >
-                        <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
-                          <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <div
-                          style={{
-                            fontFamily: "var(--font-display)",
-                            fontSize: "0.92rem",
-                            fontWeight: 700,
-                            color: "var(--text-primary)",
-                          }}
-                        >
-                          Launch Audio Stage
-                        </div>
-                        <div style={{ fontSize: "0.76rem", color: "var(--text-secondary)" }}>
-                          Fullscreen reactive visualizer &amp; vinyl deck
-                        </div>
-                      </div>
-                    </div>
-                    <span style={{ color: "var(--accent-primary)", fontWeight: 700 }}>→</span>
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
+            <span>MUSIO</span>
+            <span className="gradient-text">2.0</span>
+          </h1>
         </section>
 
         {/* ── MAIN LIBRARY CONTENT ── */}
-        <div style={{ maxWidth: 1080, margin: "0 auto", padding: "0 20px 64px" }}>
+        <div style={{ maxWidth: 1080, margin: "0 auto", padding: "8px 20px 64px" }}>
           {/* ── SONGS SECTION ── */}
           <section style={{ marginBottom: 56 }}>
             <div className="section-header">
               <h2 className="section-title">
                 <span
-                  className="rainbow-bar"
+                  className="rainbow-bar music-reactive-pulse"
                   style={{ width: 10, height: 22, borderRadius: 4, display: "inline-block" }}
                 />
                 {showAllSongs ? `All Tracks (${allSongs.length})` : "Recently Added"}
@@ -633,7 +527,7 @@ export default function HomePage() {
             <div className="section-header">
               <h2 className="section-title">
                 <span
-                  className="rainbow-bar"
+                  className="rainbow-bar music-reactive-pulse"
                   style={{ width: 10, height: 22, borderRadius: 4, display: "inline-block" }}
                 />
                 Your Playlists

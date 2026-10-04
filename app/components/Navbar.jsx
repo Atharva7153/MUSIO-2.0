@@ -26,7 +26,7 @@ const NAV_LINKS = [
   },
   {
     href: "/visualizer",
-    label: "Stage",
+    label: "Visualizer",
     icon: (
       <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
         <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
@@ -44,6 +44,53 @@ const NAV_LINKS = [
   },
 ];
 
+function NavReactiveMeter() {
+  const wrapRef = useRef(null);
+  const { subscribeAudio, isPlaying } = usePlayer();
+
+  useEffect(() => {
+    const unsub = subscribeAudio((audio) => {
+      if (!wrapRef.current) return;
+      const bars = wrapRef.current.children;
+      const bins = [1, 5, 11, 20];
+      for (let i = 0; i < bars.length; i++) {
+        const val = isPlaying ? Math.max(0.2, audio.bins[bins[i]] || 0.2) : 0.2;
+        bars[i].style.transform = `scaleY(${val.toFixed(2)})`;
+      }
+    });
+    return unsub;
+  }, [subscribeAudio, isPlaying]);
+
+  return (
+    <div
+      ref={wrapRef}
+      style={{
+        display: "flex",
+        alignItems: "flex-end",
+        gap: 2,
+        height: 14,
+        marginLeft: 2,
+      }}
+      aria-hidden="true"
+    >
+      {[0, 1, 2, 3].map((i) => (
+        <span
+          key={i}
+          className="rainbow-bar"
+          style={{
+            width: 2.5,
+            height: "100%",
+            borderRadius: 99,
+            transformOrigin: "bottom",
+            transform: "scaleY(0.2)",
+            display: "inline-block",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function Navbar() {
   const pathname = usePathname();
   const { playSong } = usePlayer();
@@ -57,7 +104,6 @@ export default function Navbar() {
   const searchInputRef = useRef(null);
   const searchTimeout = useRef(null);
 
-  /* ── Initialize and sync theme (White+Orange Light vs Black+Rainbow Dark) ── */
   useEffect(() => {
     const saved = localStorage.getItem("musio-theme");
     const initial = saved === "dark" || saved === "light" ? saved : "light";
@@ -74,7 +120,6 @@ export default function Navbar() {
     document.documentElement.classList.toggle("dark", next === "dark");
   };
 
-  /* ── Click outside to close search ── */
   useEffect(() => {
     const handler = (e) => {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
@@ -86,7 +131,6 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  /* ── Debounced song search ── */
   const handleSearch = (e) => {
     const val = e.target.value;
     setQuery(val);
@@ -175,7 +219,7 @@ export default function Navbar() {
             gap: 12,
           }}
         >
-          {/* Brand Logo */}
+          {/* Brand Logo + Live Music Reactive Meter */}
           <Link
             href="/"
             style={{
@@ -187,7 +231,7 @@ export default function Navbar() {
             }}
           >
             <div
-              className="rainbow-bar"
+              className="rainbow-bar music-reactive-pulse"
               style={{
                 width: 34,
                 height: 34,
@@ -226,6 +270,7 @@ export default function Navbar() {
                 2.0
               </span>
             </div>
+            <NavReactiveMeter />
           </Link>
 
           {/* Center Navigation Pills (Desktop) */}

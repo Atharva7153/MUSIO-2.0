@@ -2,60 +2,47 @@
 import { useEffect, useRef, useState } from "react";
 import { usePlayer } from "../context/PlayerContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { gsap } from "gsap";
 
-function EqualizerBars({ isPlaying }) {
-  const containerRef = useRef(null);
+function PlaybarReactiveSpectrum() {
+  const wrapRef = useRef(null);
+  const { subscribeAudio, isPlaying } = usePlayer();
 
   useEffect(() => {
-    if (!containerRef.current) return;
-    const bars = containerRef.current.querySelectorAll(".eq-bar");
-    gsap.killTweensOf(bars);
-
-    if (isPlaying) {
-      bars.forEach((bar, idx) => {
-        gsap.to(bar, {
-          scaleY: () => 0.25 + Math.random() * 0.75,
-          duration: 0.28 + idx * 0.05,
-          repeat: -1,
-          yoyo: true,
-          ease: "sine.inOut",
-        });
-      });
-    } else {
-      gsap.to(bars, {
-        scaleY: 0.22,
-        duration: 0.3,
-        ease: "power2.out",
-      });
-    }
-
-    return () => gsap.killTweensOf(bars);
-  }, [isPlaying]);
+    const unsub = subscribeAudio((audio) => {
+      if (!wrapRef.current) return;
+      const bars = wrapRef.current.children;
+      const indices = [1, 3, 6, 10, 15, 22, 30, 40];
+      for (let i = 0; i < bars.length; i++) {
+        const v = isPlaying ? Math.max(0.18, audio.bins[indices[i]] || 0.18) : 0.18;
+        bars[i].style.transform = `scaleY(${v.toFixed(2)})`;
+      }
+    });
+    return unsub;
+  }, [subscribeAudio, isPlaying]);
 
   return (
     <div
-      ref={containerRef}
+      ref={wrapRef}
       style={{
         display: "flex",
         alignItems: "flex-end",
-        gap: 3,
-        height: 18,
+        gap: 2.5,
+        height: 22,
         paddingBottom: 2,
         flexShrink: 0,
       }}
       aria-hidden="true"
     >
-      {[0, 1, 2, 3].map((i) => (
+      {[...Array(8)].map((_, i) => (
         <span
           key={i}
-          className="eq-bar rainbow-bar"
+          className="rainbow-bar"
           style={{
             width: 3,
             height: "100%",
             borderRadius: 99,
             transformOrigin: "bottom",
-            transform: "scaleY(0.25)",
+            transform: "scaleY(0.2)",
             display: "inline-block",
           }}
         />
@@ -79,9 +66,10 @@ export default function Playbar() {
     sleepTimer,
     startSleepTimer,
     cancelSleepTimer,
+    audioElementRef,
   } = usePlayer();
 
-  const audioRef = useRef(null);
+  const localAudioRef = useRef(null);
   const progressRef = useRef(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -94,30 +82,34 @@ export default function Playbar() {
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   useEffect(() => {
-    if (audioRef.current) {
+    audioElementRef.current = localAudioRef.current;
+  }, [audioElementRef, currentSong]);
+
+  useEffect(() => {
+    if (localAudioRef.current) {
       if (isPlaying) {
-        audioRef.current.play().catch(() => {});
+        localAudioRef.current.play().catch(() => {});
       } else {
-        audioRef.current.pause();
+        localAudioRef.current.pause();
       }
     }
   }, [isPlaying, currentIndex]);
 
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = volume;
+    if (localAudioRef.current) {
+      localAudioRef.current.volume = volume;
     }
   }, [volume]);
 
   const handleTimeUpdate = () => {
-    if (!isDragging && audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
+    if (!isDragging && localAudioRef.current) {
+      setCurrentTime(localAudioRef.current.currentTime);
     }
   };
 
   const handleLoadedMetadata = () => {
-    if (audioRef.current) {
-      setDuration(audioRef.current.duration || 0);
+    if (localAudioRef.current) {
+      setDuration(localAudioRef.current.duration || 0);
     }
   };
 
@@ -128,7 +120,7 @@ export default function Playbar() {
     const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
     const newTime = ratio * duration;
     setCurrentTime(newTime);
-    if (audioRef.current) audioRef.current.currentTime = newTime;
+    if (localAudioRef.current) localAudioRef.current.currentTime = newTime;
   };
 
   const formatTime = (secs) => {
@@ -268,7 +260,7 @@ export default function Playbar() {
             gap: 12,
           }}
         >
-          {/* Left: Track Info + GSAP Equalizer */}
+          {/* Left: Track Info + 8-bar Live Spectrum */}
           <div
             style={{
               display: "flex",
@@ -287,6 +279,7 @@ export default function Playbar() {
               onError={(e) => {
                 e.target.src = "/music-player.png";
               }}
+              className={isPlaying ? "music-reactive-pulse" : ""}
               style={{
                 width: 44,
                 height: 44,
@@ -322,7 +315,7 @@ export default function Playbar() {
                 {currentSong.artist || "Unknown Artist"}
               </div>
             </div>
-            <EqualizerBars isPlaying={isPlaying} />
+            <PlaybarReactiveSpectrum />
           </div>
 
           {/* Center: Transport Controls */}
@@ -382,7 +375,7 @@ export default function Playbar() {
               whileTap={{ scale: 0.93 }}
               onClick={() => setIsPlaying(!isPlaying)}
               aria-label={isPlaying ? "Pause" : "Play"}
-              className="rainbow-bar"
+              className={`rainbow-bar ${isPlaying ? "music-reactive-pulse" : ""}`}
               style={{
                 width: 46,
                 height: 46,
@@ -588,7 +581,7 @@ export default function Playbar() {
         </div>
 
         <audio
-          ref={audioRef}
+          ref={localAudioRef}
           src={currentSong.url}
           autoPlay
           loop={isLooping}
