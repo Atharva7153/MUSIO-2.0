@@ -17,11 +17,7 @@ export default function UploadPage() {
   const [uploadStatus, setUploadStatus] = useState('');
   const [uploadFileName, setUploadFileName] = useState('');
 
-  const BACKEND_SERVER =
-    process.env.NEXT_PUBLIC_YT_BACKEND_URL ||
-    (typeof window !== "undefined" && window.location.hostname === "localhost"
-      ? "http://localhost:4000"
-      : "https://musio-2-0-yt-backend-1.onrender.com");
+  const BACKEND_SERVER = process.env.NEXT_PUBLIC_YT_BACKEND_URL || "/yt-api";
 
   const fetchCookieExpiry = async () => {
     try {
