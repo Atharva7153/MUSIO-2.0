@@ -1,40 +1,29 @@
 import mongoose from "mongoose";
 
-// Helper function to create and cache a database connection
-const createConnection = (uri) => {
-  if (!uri) {
-    throw new Error("MongoDB URI is not defined.");
-  }
-  const connection = mongoose.createConnection(uri);
-  return connection;
-};
+const MONGO_URI =
+  process.env.MONGO_URI ||
+  process.env.MONGODB_URI ||
+  process.env.MONGO_URI_NEW;
 
-// --- Connections ---
-// Use a global object to cache connections and prevent re-creating them on every request in development
+if (!MONGO_URI) {
+  throw new Error("MongoDB URI is not defined in environment variables.");
+}
+
+// Use a global object to cache the connection in development
 global.mongooseConnections = global.mongooseConnections || {};
 
-// Connection for the OLD database (reading existing data)
-if (!global.mongooseConnections.oldDb) {
-  global.mongooseConnections.oldDb = createConnection(process.env.MONGO_URI_OLD);
-}
-
-// Connection for the NEW database (writing new data)
 if (!global.mongooseConnections.newDb) {
-  global.mongooseConnections.newDb = createConnection(process.env.MONGO_URI || process.env.MONGODB_URI || process.env.MONGO_URI_NEW);
+  global.mongooseConnections.newDb = mongoose.createConnection(MONGO_URI);
 }
 
-
-// --- Exports ---
-export const oldDB = global.mongooseConnections.oldDb;
 export const newDB = global.mongooseConnections.newDb;
 
-// Default export can be one of the connections, or you can choose based on your primary use case.
-// Let's default to the new database connection.
-export default global.mongooseConnections.newDb;
+export default async function connectDB() {
+  await newDB.asPromise();
+  return newDB;
+}
 
-
-// A helper to connect and get the native client
-export async function connectToDatabase(connection) {
-    await connection.asPromise();
-    return connection.getClient();
+export async function connectToDatabase(connection = newDB) {
+  await connection.asPromise();
+  return connection.getClient();
 }

@@ -3,7 +3,7 @@
   "version": "2.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "sh -c 'if [ -f MUSIO-2.0-yt-backend/index.js ] && ! lsof -i:4000 >/dev/null 2>&1; then (cd MUSIO-2.0-yt-backend && node index.js) & fi; next dev --turbopack'",
     "build": "next build --turbopack",
     "start": "next start"
   },

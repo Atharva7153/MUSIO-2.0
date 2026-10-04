@@ -17,7 +17,31 @@ export default function UploadPage() {
   const [uploadStatus, setUploadStatus] = useState('');
   const [uploadFileName, setUploadFileName] = useState('');
 
-  const BACKEND_SERVER = "https://musio-2-0-yt-backend-1.onrender.com"; // your backend
+  const BACKEND_SERVER =
+    process.env.NEXT_PUBLIC_YT_BACKEND_URL || "http://localhost:4000";
+
+  const fetchCookieExpiry = async () => {
+    try {
+      const data = await safeFetch(`${BACKEND_SERVER}/cookie-expiry`);
+      setServerAwake(true);
+      if (data.expiresAt) {
+        const expiryDate = new Date(data.expiresAt);
+        if (expiryDate < new Date()) {
+          setCookieStatus(`⚠️ Expired on ${expiryDate.toLocaleString()}`);
+        } else {
+          setCookieStatus(`✅ Valid until ${expiryDate.toLocaleString()}`);
+        }
+      } else {
+        setCookieStatus("No cookie expiry info found");
+      }
+    } catch (err) {
+      console.warn("cookie-expiry check failed:", err.message);
+      setServerAwake(false);
+      setCookieStatus(
+        "⚠️ Could not fetch cookie expiry (YouTube backend server offline)"
+      );
+    }
+  };
 
   useEffect(() => {
     const parseJsonSafe = async (res) => {
@@ -31,30 +55,12 @@ export default function UploadPage() {
 
     fetch("/api/playlists")
       .then((res) => parseJsonSafe(res))
-      .then((data) => setPlaylists(data.playlists))
-      .catch((err) => console.error('Failed to load playlists:', err));
+      .then((data) => setPlaylists(data.playlists || []))
+      .catch((err) => console.warn('Failed to load playlists:', err.message));
   }, []);
 
   // 👇 fetch cookie expiry once (use safeFetch to avoid parsing HTML)
   useEffect(() => {
-    const fetchCookieExpiry = async () => {
-      try {
-        const data = await safeFetch(`${BACKEND_SERVER}/cookie-expiry`);
-        if (data.expiresAt) {
-          const expiryDate = new Date(data.expiresAt);
-          if (expiryDate < new Date()) {
-            setCookieStatus(`⚠️ Expired on ${expiryDate.toLocaleString()}`);
-          } else {
-            setCookieStatus(`✅ Valid until ${expiryDate.toLocaleString()}`);
-          }
-        } else {
-          setCookieStatus("No cookie expiry info found");
-        }
-      } catch (err) {
-        console.error('cookie-expiry error:', err);
-        setCookieStatus("⚠️ Could not fetch cookie expiry (non-JSON response or server down)");
-      }
-    };
     fetchCookieExpiry();
   }, []);
 
@@ -66,10 +72,11 @@ export default function UploadPage() {
       // health endpoint may return non-JSON; safeFetch will throw if so
       await safeFetch(`${BACKEND_SERVER}/health`);
       setServerAwake(true);
+      await fetchCookieExpiry();
       toast.dismiss();
       toast.success("Server is awake! You can upload songs now.");
     } catch (err) {
-      console.error('wakeServer error:', err);
+      console.warn('wakeServer error:', err.message);
       toast.dismiss();
       toast.error(err.message || "Could not wake server");
     } finally {
@@ -103,7 +110,12 @@ export default function UploadPage() {
             }
           } else {
             // Error
-            reject(new Error(`Request failed with status ${xhr.status}`));
+            let errMsg = `Request failed with status ${xhr.status}`;
+            try {
+              const errData = JSON.parse(xhr.responseText);
+              if (errData.error) errMsg = errData.error;
+            } catch (_) {}
+            reject(new Error(errMsg));
           }
         }
       };

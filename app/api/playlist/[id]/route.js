@@ -1,17 +1,13 @@
 // app/api/playlist/[id]/route.js
 import { NextResponse } from "next/server";
-import { oldDB, newDB } from "../../../lib/mongodb";
-import { OldPlaylist } from "../../../models/Playlist";
-import NewPlaylist from "../../../models/Playlist";
+import connectDB from "../../../lib/mongodb";
+import Playlist from "../../../models/Playlist";
 
 export async function GET(req, { params }) {
   try {
     const { id } = await params;
-    await Promise.all([oldDB, newDB]);
-    let playlist = await OldPlaylist.findById(id).populate("songs");
-    if (!playlist) {
-      playlist = await NewPlaylist.findById(id).populate("songs");
-    }
+    await connectDB();
+    const playlist = await Playlist.findById(id).populate("songs");
     return NextResponse.json({ playlist });
   } catch (error) {
     const { id } = await params;
@@ -37,14 +33,9 @@ export async function PUT(req, { params }) {
   }
 
   try {
-    await Promise.all([oldDB, newDB]);
+    await connectDB();
 
-    let playlistToUpdate = await NewPlaylist.findById(id);
-
-    // If not found in the new DB, try the old one
-    if (!playlistToUpdate) {
-      playlistToUpdate = await OldPlaylist.findById(id);
-    }
+    const playlistToUpdate = await Playlist.findById(id);
 
     if (!playlistToUpdate) {
       return NextResponse.json(
@@ -73,4 +64,3 @@ export async function PUT(req, { params }) {
     );
   }
 }
-

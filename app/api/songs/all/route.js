@@ -1,44 +1,19 @@
 import { NextResponse } from "next/server";
-import { oldDB, newDB } from "../../../lib/mongodb";
-import { OldSong } from "../../../models/Song";
-import NewSong from "../../../models/Song";
+import connectDB from "../../../lib/mongodb";
+import Song from "../../../models/Song";
 
 export async function GET() {
   try {
-    // Wait for both connections to be ready
-    await Promise.all([
-      oldDB.asPromise(),
-      newDB.asPromise()
-    ]);
-    
-    const oldSongs = await OldSong.find({})
+    await connectDB();
+
+    const songs = await Song.find({})
       .sort({ createdAt: -1 })
-      .lean();
-    
-    const newSongs = await NewSong.find({})
-      .sort({ createdAt: -1 })
+      .limit(50)
       .lean();
 
-    // Combine and deduplicate by _id (prefer newer songs from NEW db)
-    const songMap = new Map();
-    
-    // Add old songs first
-    oldSongs.forEach(song => {
-      songMap.set(song._id.toString(), song);
-    });
-    
-    // Add new songs (will overwrite duplicates)
-    newSongs.forEach(song => {
-      songMap.set(song._id.toString(), song);
-    });
-    
-    // Convert back to array and sort by date
-    const uniqueSongs = Array.from(songMap.values())
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    
     return NextResponse.json({
       success: true,
-      songs: uniqueSongs.slice(0, 50)
+      songs,
     });
   } catch (error) {
     console.error("Error fetching songs:", error);

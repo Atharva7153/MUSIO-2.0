@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local youtube backend project
+/MUSIO-2.0-yt-backend/
+MUSIO-2.0-yt-backend/
