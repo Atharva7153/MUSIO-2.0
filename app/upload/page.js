@@ -3,19 +3,19 @@ import { useState, useEffect } from "react";
 import toast, { Toaster } from "react-hot-toast";
 import { safeFetch } from "../lib/safeFetch";
 import UploadProgressBar from "./UploadProgressBar";
-import "./UploadPage.css";
+import { motion } from "framer-motion";
 
 export default function UploadPage() {
   const [playlists, setPlaylists] = useState([]);
   const [useNewPlaylist, setUseNewPlaylist] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [uploadType, setUploadType] = useState("file"); // "file" | "youtube"
+  const [uploadType, setUploadType] = useState("file");
   const [serverAwake, setServerAwake] = useState(false);
   const [isWaking, setIsWaking] = useState(false);
-  const [cookieStatus, setCookieStatus] = useState("Checking..."); // 👈 added
+  const [cookieStatus, setCookieStatus] = useState("Checking YouTube backend...");
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadStatus, setUploadStatus] = useState('');
-  const [uploadFileName, setUploadFileName] = useState('');
+  const [uploadStatus, setUploadStatus] = useState("");
+  const [uploadFileName, setUploadFileName] = useState("");
 
   const BACKEND_SERVER = process.env.NEXT_PUBLIC_YT_BACKEND_URL || "/yt-api";
 
@@ -24,117 +24,82 @@ export default function UploadPage() {
       const data = await safeFetch(`${BACKEND_SERVER}/cookie-expiry`);
       setServerAwake(true);
       if (data.expiresAt) {
-        const expiryDate = new Date(data.expiresAt);
-        if (expiryDate < new Date()) {
-          setCookieStatus(`⚠️ Expired on ${expiryDate.toLocaleString()}`);
-        } else {
-          setCookieStatus(`✅ Valid until ${expiryDate.toLocaleString()}`);
-        }
+        const exp = new Date(data.expiresAt);
+        setCookieStatus(
+          exp < new Date()
+            ? `⚠️ Cookie expired on ${exp.toLocaleDateString()}`
+            : `✅ YouTube Ready · Valid until ${exp.toLocaleDateString()}`
+        );
       } else {
-        setCookieStatus("No cookie expiry info found");
+        setCookieStatus("YouTube backend connected");
       }
-    } catch (err) {
-      console.warn("cookie-expiry check failed:", err.message);
+    } catch {
       setServerAwake(false);
-      setCookieStatus(
-        "⚠️ Could not fetch cookie expiry (YouTube backend server offline)"
-      );
+      setCookieStatus("⚠️ YouTube backend sleeping (File upload is always active)");
     }
   };
 
   useEffect(() => {
-    const parseJsonSafe = async (res) => {
-      const contentType = res.headers.get('content-type') || '';
-      if (!contentType.includes('application/json')) {
-        const text = await res.text().catch(() => '<unreadable body>');
-        throw new Error(`Expected JSON but received non-JSON response (status ${res.status}): ${text.slice(0,200)}`);
-      }
-      return res.json();
-    };
-
     fetch("/api/playlists")
-      .then((res) => parseJsonSafe(res))
-      .then((data) => setPlaylists(data.playlists || []))
-      .catch((err) => console.warn('Failed to load playlists:', err.message));
-  }, []);
-
-  // 👇 fetch cookie expiry once (use safeFetch to avoid parsing HTML)
-  useEffect(() => {
+      .then((res) => res.json())
+      .then((d) => setPlaylists(d.playlists || []))
+      .catch(() => {});
     fetchCookieExpiry();
   }, []);
 
-  // Wake server button
   const wakeServer = async () => {
     setIsWaking(true);
-    toast.loading("Waking up backend server... please wait");
+    toast.loading("Waking backend server...");
     try {
-      // health endpoint may return non-JSON; safeFetch will throw if so
       await safeFetch(`${BACKEND_SERVER}/health`);
       setServerAwake(true);
       await fetchCookieExpiry();
       toast.dismiss();
-      toast.success("Server is awake! You can upload songs now.");
+      toast.success("Server is awake!");
     } catch (err) {
-      console.warn('wakeServer error:', err.message);
       toast.dismiss();
       toast.error(err.message || "Could not wake server");
     } finally {
       setIsWaking(false);
     }
   };
-  
-  // Function to upload files with progress tracking
-  const uploadFileWithProgress = (url, formData) => {
-    return new Promise((resolve, reject) => {
+
+  const uploadFileWithProgress = (url, formData) =>
+    new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
-      
-      // Track upload progress
-      xhr.upload.addEventListener('progress', (event) => {
-        if (event.lengthComputable) {
-          const percentComplete = (event.loaded / event.total) * 100;
-          setUploadProgress(percentComplete);
+      xhr.upload.addEventListener("progress", (ev) => {
+        if (ev.lengthComputable) {
+          setUploadProgress((ev.loaded / ev.total) * 100);
         }
       });
-      
-      // Handle state changes
       xhr.onreadystatechange = () => {
-        if (xhr.readyState === 4) { // Request completed
+        if (xhr.readyState === 4) {
           if (xhr.status >= 200 && xhr.status < 300) {
-            // Success
             try {
-              const response = JSON.parse(xhr.responseText);
-              resolve(response);
-            } catch (error) {
-              reject(new Error('Invalid JSON response'));
+              resolve(JSON.parse(xhr.responseText));
+            } catch {
+              reject(new Error("Invalid JSON response"));
             }
           } else {
-            // Error
-            let errMsg = `Request failed with status ${xhr.status}`;
+            let errMsg = `Upload failed (${xhr.status})`;
             try {
               const errData = JSON.parse(xhr.responseText);
               if (errData.error) errMsg = errData.error;
-            } catch (_) {}
+            } catch {}
             reject(new Error(errMsg));
           }
         }
       };
-      
-      // Handle errors
-      xhr.onerror = () => {
-        reject(new Error('Network error occurred'));
-      };
-      
-      // Open and send the request
-      xhr.open('POST', url, true);
+      xhr.onerror = () => reject(new Error("Network error occurred"));
+      xhr.open("POST", url, true);
       xhr.send(formData);
     });
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setUploadProgress(0);
-    setUploadStatus('');
+    setUploadStatus("");
 
     const formData = new FormData(e.target);
 
@@ -146,309 +111,362 @@ export default function UploadPage() {
           setIsLoading(false);
           return;
         }
-
-        // Set status for YouTube uploads
         setUploadFileName(`YouTube: ${ytUrl}`);
-        setUploadStatus('uploading');
-        setUploadProgress(10); // Start with some progress to show user something is happening
+        setUploadStatus("uploading");
+        setUploadProgress(15);
 
-        try {
-          const ytData = await safeFetch(`${BACKEND_SERVER}/yt-upload`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              url: ytUrl,
-              title: formData.get("title"),
-              artist: formData.get("artist"),
-              genre: formData.get("genre"),
-              playlistId: formData.get("playlistId"),
-              newPlaylistName: formData.get("newPlaylistName"),
-            }),
-          });
-          
-          // Update progress for processing stage
-          setUploadProgress(75);
-          setUploadStatus('processing');
+        const ytData = await safeFetch(`${BACKEND_SERVER}/yt-upload`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: ytUrl,
+            title: formData.get("title"),
+            artist: formData.get("artist"),
+            genre: formData.get("genre"),
+            playlistId: formData.get("playlistId"),
+            newPlaylistName: formData.get("newPlaylistName"),
+          }),
+        });
 
-          if (!ytData.success) {
-            setUploadStatus('error');
-            toast.error(ytData.error || "YouTube download failed");
-            setIsLoading(false);
-            return;
-          }
+        setUploadProgress(80);
+        setUploadStatus("processing");
 
-          // Complete!
+        if (!ytData.success) {
+          setUploadStatus("error");
+          toast.error(ytData.error || "YouTube download failed");
+          setIsLoading(false);
+          return;
+        }
+
+        setUploadProgress(100);
+        setUploadStatus("complete");
+        toast.success("Song imported from YouTube!");
+        e.target.reset();
+        setUseNewPlaylist(false);
+      } else {
+        const songFile = formData.get("songFile");
+        if (!songFile || !songFile.name) {
+          toast.error("Please select an audio file!");
+          setIsLoading(false);
+          return;
+        }
+        setUploadFileName(songFile.name);
+        setUploadStatus("uploading");
+
+        const data = await uploadFileWithProgress("/api/upload", formData);
+        setUploadStatus("processing");
+        setUploadProgress(92);
+
+        if (data.success) {
           setUploadProgress(100);
-          setUploadStatus('complete');
-          toast.success("Song uploaded from YouTube!");
+          setUploadStatus("complete");
+          toast.success("Song uploaded to library!");
           e.target.reset();
           setUseNewPlaylist(false);
-        } catch (err) {
-          console.error('yt-upload error:', err);
-          setUploadStatus('error');
-          toast.error('YouTube upload failed: non-JSON response or server error');
-          setIsLoading(false);
-          return;
-        }
-      }
-
-      if (uploadType === "file") {
-        // Get song file info for display
-        const songFile = formData.get("songFile");
-        if (songFile) {
-          setUploadFileName(songFile.name);
-          setUploadStatus('uploading');
         } else {
-          toast.error("Please select a song file!");
-          setIsLoading(false);
-          return;
-        }
-        
-        try {
-          // Use XHR for progress tracking
-          const data = await uploadFileWithProgress("/api/upload", formData);
-          
-          setUploadStatus('processing');
-          setUploadProgress(90); // Almost done, processing on server
-          
-          if (data.success) {
-            setUploadProgress(100);
-            setUploadStatus('complete');
-            toast.success("Song uploaded successfully!");
-            e.target.reset();
-            setUseNewPlaylist(false);
-          } else {
-            setUploadStatus('error');
-            toast.error(data.error || "Something went wrong!");
-          }
-        } catch (err) {
-          console.error('/api/upload error:', err);
-          setUploadStatus('error');
-          toast.error(err.message || 'Server error');
+          setUploadStatus("error");
+          toast.error(data.error || "Upload failed");
         }
       }
     } catch (err) {
-      setUploadStatus('error');
-      toast.error(err.message || "Server error");
+      setUploadStatus("error");
+      toast.error(err.message || "Upload failed");
     } finally {
       setIsLoading(false);
     }
   };
 
-  return (
-    <div className="upload-page page-content">
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          style: {
-            background: "rgba(15, 15, 35, 0.95)",
-            color: "white",
-            border: "1px solid rgba(255, 255, 255, 0.1)",
-            backdropFilter: "blur(20px)",
-          },
-        }}
-      />
+  const labelStyle = {
+    display: "block",
+    fontFamily: "var(--font-display)",
+    fontSize: "0.78rem",
+    fontWeight: 700,
+    color: "var(--text-secondary)",
+    textTransform: "uppercase",
+    letterSpacing: "0.05em",
+    marginBottom: 6,
+  };
 
-      <div className="upload-container">
-        <div className="upload-header">
-          <h1 className="upload-title">Upload Music</h1>
-          <p className="upload-subtitle">
-            Upload a file or paste a YouTube link
-          </p>
-          {/* 👇 Cookie expiry status */}
-          <p className="cookie-expiry">{cookieStatus}</p>
+  return (
+    <div className="page-content" style={{ maxWidth: 740, margin: "0 auto", padding: "108px 20px 80px" }}>
+      <Toaster position="top-right" />
+
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        style={{ marginBottom: 28 }}
+      >
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "5px 12px",
+            borderRadius: 99,
+            background: "var(--accent-soft)",
+            color: "var(--accent-primary)",
+            fontSize: "0.75rem",
+            fontWeight: 700,
+            fontFamily: "var(--font-display)",
+            marginBottom: 10,
+          }}
+        >
+          Studio Ingest · {cookieStatus}
+        </div>
+        <h1
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: "clamp(1.9rem, 4vw, 2.7rem)",
+            fontWeight: 800,
+            letterSpacing: "-0.03em",
+          }}
+        >
+          Upload <span className="gradient-text">Music</span>
+        </h1>
+      </motion.div>
+
+      <motion.form
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.08 }}
+        onSubmit={handleSubmit}
+        className="surface-card"
+        style={{
+          padding: "clamp(22px, 4vw, 34px)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 22,
+        }}
+      >
+        <div className="rainbow-line" style={{ position: "absolute", top: 0, left: 0, right: 0 }} />
+
+        {/* Upload Source Selector */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 8,
+            padding: 5,
+            borderRadius: 14,
+            background: "var(--bg-subtle)",
+            border: "1px solid var(--border-subtle)",
+          }}
+        >
+          {[
+            { id: "file", label: "Audio File Upload" },
+            { id: "youtube", label: "YouTube Link Import" },
+          ].map((tab) => {
+            const active = uploadType === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setUploadType(tab.id)}
+                className={active ? "rainbow-bar" : ""}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: active ? undefined : "transparent",
+                  color: active ? "#FFFFFF" : "var(--text-secondary)",
+                  fontFamily: "var(--font-display)",
+                  fontWeight: 700,
+                  fontSize: "0.86rem",
+                  cursor: "pointer",
+                }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
 
-        <form onSubmit={handleSubmit} className="upload-form">
-          {/* Song Info */}
-          <div className="form-section">
-            <h2 className="section-title">Song Information</h2>
-            <div className="input-group">
-              <label className="input-label">Song Title *</label>
+        {/* Metadata */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 16 }}>
+          <div>
+            <label style={labelStyle}>Song Title *</label>
+            <input
+              type="text"
+              name="title"
+              required
+              placeholder="e.g. Midnight City"
+              className="theme-input"
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>Artist</label>
+            <input
+              type="text"
+              name="artist"
+              placeholder="e.g. M83"
+              className="theme-input"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label style={labelStyle}>Genre</label>
+          <select name="genre" className="theme-input">
+            <option value="">Select genre (optional)</option>
+            {[
+              "pop",
+              "rock",
+              "hip hop",
+              "electronic",
+              "indie",
+              "jazz",
+              "classical",
+              "country",
+              "r&b",
+              "alternative",
+              "other",
+            ].map((g) => (
+              <option key={g} value={g}>
+                {g.toUpperCase()}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Source Input */}
+        {uploadType === "file" ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 16 }}>
+            <div>
+              <label style={labelStyle}>Audio File *</label>
               <input
-                type="text"
-                name="title"
-                placeholder="Enter song title"
+                type="file"
+                name="songFile"
+                accept="audio/*"
                 required
-                className="text-input"
+                className="theme-input"
               />
             </div>
-            <div className="input-group">
-              <label className="input-label">Artist</label>
+            <div>
+              <label style={labelStyle}>Cover Artwork (Optional)</label>
               <input
-                type="text"
-                name="artist"
-                placeholder="Enter artist name"
-                className="text-input"
+                type="file"
+                name="songCover"
+                accept="image/*"
+                className="theme-input"
               />
             </div>
-            <div className="input-group">
-              <label className="input-label">Genre</label>
-              <select name="genre" className="text-input">
-                <option value="">Select genre (optional)</option>
-                <option value="pop">Pop</option>
-                <option value="rock">Rock</option>
-                <option value="hip hop">Hip Hop</option>
-                <option value="electronic">Electronic</option>
-                <option value="indie">Indie</option>
-                <option value="jazz">Jazz</option>
-                <option value="classical">Classical</option>
-                <option value="country">Country</option>
-                <option value="r&b">R&B</option>
-                <option value="alternative">Alternative</option>
-                <option value="folk">Folk</option>
-                <option value="metal">Metal</option>
-                <option value="reggae">Reggae</option>
-                <option value="blues">Blues</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
           </div>
-
-          {/* Upload Method */}
-          <div className="form-section">
-            <h2 className="section-title">Upload Method</h2>
-            <div className="radio-group">
-              <label>
-                <input
-                  type="radio"
-                  name="uploadType"
-                  value="file"
-                  checked={uploadType === "file"}
-                  onChange={() => setUploadType("file")}
-                />
-                Upload File
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  name="uploadType"
-                  value="youtube"
-                  checked={uploadType === "youtube"}
-                  onChange={() => setUploadType("youtube")}
-                />
-                YouTube Link
-              </label>
-            </div>
-          </div>
-
-          {uploadType === "file" && (
-            <>
-              <div className="input-group">
-                <label className="input-label">Song File *</label>
-                <input
-                  type="file"
-                  name="songFile"
-                  accept="audio/*"
-                  className="file-input"
-                />
-              </div>
-              <div className="input-group">
-                <label className="input-label">Song Cover Image</label>
-                <input
-                  type="file"
-                  name="songCover"
-                  accept="image/*"
-                  className="file-input"
-                />
-              </div>
-            </>
-          )}
-
-          {uploadType === "youtube" && (
-            <div className="input-group">
-              <label className="input-label">YouTube URL *</label>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div>
+              <label style={labelStyle}>YouTube Video URL *</label>
               <input
                 type="url"
                 name="youtubeUrl"
-                placeholder="Paste YouTube link"
+                placeholder="https://www.youtube.com/watch?v=..."
                 required
-                className="text-input"
+                className="theme-input"
               />
-
-              {/* Wake button ONLY visible here */}
-              {!serverAwake && (
-                <button
-                  type="button"
-                  className={`wake-button ${isWaking ? "loading" : ""}`}
-                  onClick={wakeServer}
-                  disabled={isWaking}
-                >
-                  {isWaking ? "Waking Server..." : "Wake Backend Server"}
-                </button>
-              )}
             </div>
-          )}
-
-          {/* Playlist Section */}
-          <div className="form-section">
-            <h2 className="section-title">Playlist Options</h2>
-            <div className="checkbox-group">
-              <input
-                type="checkbox"
-                id="newPlaylist"
-                className="checkbox-input"
-                onChange={() => setUseNewPlaylist(!useNewPlaylist)}
-              />
-              <label htmlFor="newPlaylist" className="checkbox-label">
-                Create New Playlist
-              </label>
-            </div>
-
-            {!useNewPlaylist ? (
-              <div className="input-group">
-                <label className="input-label">Choose Existing Playlist</label>
-                <select name="playlistId" className="select-input">
-                  <option value="">No playlist</option>
-                  {playlists.map((pl) => (
-                    <option key={pl._id} value={pl._id}>
-                      {pl.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : (
-              <>
-                <div className="input-group">
-                  <label className="input-label">New Playlist Name</label>
-                  <input
-                    type="text"
-                    name="newPlaylistName"
-                    placeholder="Enter playlist name"
-                    className="text-input"
-                  />
-                </div>
-                <div className="input-group">
-                  <label className="input-label">Playlist Cover Image</label>
-                  <input
-                    type="file"
-                    name="playlistCover"
-                    accept="image/*"
-                    className="file-input"
-                  />
-                </div>
-              </>
+            {!serverAwake && (
+              <button
+                type="button"
+                onClick={wakeServer}
+                disabled={isWaking}
+                className="btn-secondary"
+                style={{ alignSelf: "flex-start" }}
+              >
+                {isWaking ? "Waking Server..." : "⚡ Wake YouTube Backend Server"}
+              </button>
             )}
           </div>
+        )}
 
-          {/* Upload Progress Bar */}
-          {uploadStatus && (
-            <UploadProgressBar 
-              progress={uploadProgress} 
-              fileName={uploadFileName} 
-              status={uploadStatus} 
-            />
-          )}
-          
-          <button
-            type="submit"
-            className={`submit-button ${isLoading ? "loading" : ""}`}
-            disabled={isLoading}
+        {/* Playlist Assignment */}
+        <div
+          style={{
+            padding: 18,
+            borderRadius: 14,
+            background: "var(--bg-subtle)",
+            border: "1px solid var(--border-subtle)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 14,
+          }}
+        >
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              cursor: "pointer",
+              fontFamily: "var(--font-display)",
+              fontWeight: 700,
+              fontSize: "0.88rem",
+              color: "var(--text-primary)",
+            }}
           >
-            {isLoading ? "Uploading..." : "Upload Song"}
-          </button>
-        </form>
-      </div>
+            <input
+              type="checkbox"
+              checked={useNewPlaylist}
+              onChange={(e) => setUseNewPlaylist(e.target.checked)}
+              style={{ width: 16, height: 16, accentColor: "var(--accent-primary)" }}
+            />
+            Create a new playlist for this track
+          </label>
+
+          {!useNewPlaylist ? (
+            <div>
+              <label style={labelStyle}>Assign to Existing Playlist</label>
+              <select name="playlistId" className="theme-input">
+                <option value="">Standalone (No playlist)</option>
+                {playlists.map((pl) => (
+                  <option key={pl._id} value={pl._id}>
+                    {pl.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
+              <div>
+                <label style={labelStyle}>New Playlist Name</label>
+                <input
+                  type="text"
+                  name="newPlaylistName"
+                  placeholder="e.g. Late Night Drive"
+                  className="theme-input"
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Playlist Cover Image</label>
+                <input
+                  type="file"
+                  name="playlistCover"
+                  accept="image/*"
+                  className="theme-input"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {uploadStatus && (
+          <UploadProgressBar
+            progress={uploadProgress}
+            fileName={uploadFileName}
+            status={uploadStatus}
+          />
+        )}
+
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="btn-primary"
+          style={{
+            padding: "14px 24px",
+            fontSize: "0.95rem",
+            opacity: isLoading ? 0.65 : 1,
+          }}
+        >
+          {isLoading ? "Uploading..." : "Upload to MUSIO 2.0"}
+        </button>
+      </motion.form>
     </div>
   );
 }

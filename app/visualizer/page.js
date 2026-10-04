@@ -1,19 +1,44 @@
-// app/visualizer/page.js
 "use client";
-
-import { useState, useEffect } from 'react';
-import { usePlayer } from '../context/PlayerContext';
-import Link from 'next/link';
-import './VisualizerPage.css';
+import { useState, useEffect, useRef } from "react";
+import { usePlayer } from "../context/PlayerContext";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { gsap } from "gsap";
 
 export default function VisualizerPage() {
   const { playlist, currentIndex, isPlaying, nextSong, prevSong, setIsPlaying } = usePlayer();
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showControls, setShowControls] = useState(true);
-  
+  const barsRef = useRef(null);
+
   const currentSong = currentIndex >= 0 ? playlist[currentIndex] : null;
 
-  // Toggle fullscreen
+  /* ── GSAP 28-Bar Audio Stage Spectrum ── */
+  useEffect(() => {
+    if (!barsRef.current) return;
+    const bars = barsRef.current.querySelectorAll(".stage-bar");
+    gsap.killTweensOf(bars);
+
+    if (isPlaying) {
+      bars.forEach((bar, i) => {
+        gsap.to(bar, {
+          scaleY: () => 0.18 + Math.random() * 0.82,
+          duration: 0.24 + (i % 5) * 0.06,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut",
+        });
+      });
+    } else {
+      gsap.to(bars, {
+        scaleY: 0.15,
+        duration: 0.4,
+        ease: "power2.out",
+      });
+    }
+
+    return () => gsap.killTweensOf(bars);
+  }, [isPlaying, currentSong]);
+
   const toggleFullscreen = async () => {
     try {
       if (!document.fullscreenElement) {
@@ -23,95 +48,34 @@ export default function VisualizerPage() {
         await document.exitFullscreen();
         setIsFullscreen(false);
       }
-    } catch (error) {
-      console.error('Fullscreen error:', error);
+    } catch (e) {
+      console.error(e);
     }
   };
 
-  // Listen for fullscreen changes
   useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    const h = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", h);
+    return () => document.removeEventListener("fullscreenchange", h);
   }, []);
-
-  // Auto-hide controls after inactivity
-  useEffect(() => {
-    let timeout;
-    
-    const handleMouseMove = () => {
-      setShowControls(true);
-      clearTimeout(timeout);
-      
-      if (isFullscreen) {
-        timeout = setTimeout(() => {
-          setShowControls(false);
-        }, 3000);
-      }
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('keydown', handleMouseMove);
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('keydown', handleMouseMove);
-      clearTimeout(timeout);
-    };
-  }, [isFullscreen]);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      switch (e.code) {
-        case 'Space':
-          e.preventDefault();
-          setIsPlaying(!isPlaying);
-          break;
-        case 'ArrowLeft':
-          e.preventDefault();
-          prevSong();
-          break;
-        case 'ArrowRight':
-          e.preventDefault();
-          nextSong();
-          break;
-        case 'F11':
-          e.preventDefault();
-          toggleFullscreen();
-          break;
-        case 'Escape':
-          if (isFullscreen) {
-            document.exitFullscreen();
-          }
-          break;
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isPlaying, isFullscreen]);
 
   if (!currentSong) {
     return (
-      <div className="visualizer-page no-song">
-        <div className="no-song-content">
-          <div className="no-song-icon">
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+      <div className="page-content" style={{ maxWidth: 680, margin: "0 auto", padding: "120px 20px" }}>
+        <div className="empty-state">
+          <div className="empty-icon">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
             </svg>
           </div>
-          <h1>No Music Playing</h1>
-          <p>Start playing a song to see the visualizer in action</p>
-          <div className="no-song-actions">
-            <Link href="/" className="action-button primary">
-              Go to Homepage
+          <h3>Audio Stage Standby</h3>
+          <p>Select any song from your library or playlists to activate the reactive visualizer stage.</p>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+            <Link href="/" className="btn-primary">
+              Go to Library
             </Link>
-            <Link href="/discover" className="action-button secondary">
-              Discover Music
+            <Link href="/playlists" className="btn-secondary">
+              Browse Playlists
             </Link>
           </div>
         </div>
@@ -120,135 +84,161 @@ export default function VisualizerPage() {
   }
 
   return (
-    <div className={`visualizer-page page-content ${isFullscreen ? 'fullscreen' : ''}`}>
-      {/* Background Visualizer */}
-      <div className="background-visualizer">
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100%',
-          color: 'white',
-          fontSize: '1.5rem'
-        }}>
-          Visualizer has been removed
-        </div>
-      </div>
-
-      {/* Main Visualizer */}
-      <div className="main-visualizer">
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100%',
-          color: 'white',
-          fontSize: '2rem'
-        }}>
-          Music Player Only
-        </div>
-      </div>
-
-      {/* Controls Overlay */}
-      <div className={`controls-overlay ${showControls ? 'visible' : 'hidden'}`}>
-        {/* Top Bar */}
-        <div className="top-bar">
-          <div className="song-info-expanded">
-            {currentSong.coverImage && (
-              <img src={currentSong.coverImage} alt={currentSong.title} className="song-cover-large" />
-            )}
-            <div className="song-details">
-              <h1 className="song-title-large">{currentSong.title}</h1>
-              <p className="song-artist-large">{currentSong.artist}</p>
-              {currentSong.genre && (
-                <span className="song-genre-large">{currentSong.genre}</span>
-              )}
-            </div>
-          </div>
-
-          <div className="top-controls">
-            <button 
-              className="control-btn"
-              onClick={toggleFullscreen}
-              title={isFullscreen ? "Exit Fullscreen (F11)" : "Enter Fullscreen (F11)"}
-            >
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                {isFullscreen ? (
-                  <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
-                ) : (
-                  <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
-                )}
-              </svg>
-            </button>
-
-            <Link href="/" className="control-btn" title="Back to App">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
-              </svg>
-            </Link>
-          </div>
-        </div>
-
-        {/* Bottom Controls */}
-        <div className="bottom-controls">
-          <div className="playback-controls">
-            <button 
-              className="control-btn" 
-              onClick={prevSong}
-              title="Previous Song (←)"
-            >
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
-              </svg>
-            </button>
-
-            <button 
-              className="control-btn play-pause" 
-              onClick={() => setIsPlaying(!isPlaying)}
-              title={isPlaying ? "Pause (Space)" : "Play (Space)"}
-            >
-              {isPlaying ? (
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M8 5v14l11-7z"/>
-                </svg>
-              )}
-            </button>
-
-            <button 
-              className="control-btn" 
-              onClick={nextSong}
-              title="Next Song (→)"
-            >
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
-              </svg>
-            </button>
-          </div>
-
-          {/* Keyboard Shortcuts Info */}
-          <div className="shortcuts-info">
-            <span>Space: Play/Pause</span>
-            <span>←/→: Prev/Next</span>
-            <span>F11: Fullscreen</span>
-            <span>ESC: Exit</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Immersive Mode Toggle */}
-      <button 
-        className={`immersive-toggle ${showControls ? 'visible' : 'hidden'}`}
-        onClick={() => setShowControls(!showControls)}
-        title="Toggle Controls"
+    <div
+      className="page-content"
+      style={{
+        maxWidth: 1080,
+        margin: "0 auto",
+        padding: "108px 20px 80px",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+      }}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="surface-card"
+        style={{
+          width: "100%",
+          padding: "clamp(28px, 5vw, 56px)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          textAlign: "center",
+          gap: 28,
+        }}
       >
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
-        </svg>
-      </button>
+        <div className="rainbow-line" style={{ position: "absolute", top: 0, left: 0, right: 0 }} />
+
+        <div
+          style={{
+            width: "100%",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <Link href="/" className="btn-secondary" style={{ padding: "8px 16px", fontSize: "0.8rem" }}>
+            ← Library
+          </Link>
+          <button
+            onClick={toggleFullscreen}
+            className="btn-secondary"
+            style={{ padding: "8px 16px", fontSize: "0.8rem" }}
+          >
+            {isFullscreen ? "Exit Fullscreen" : "Fullscreen Stage"}
+          </button>
+        </div>
+
+        {/* Album Art Turntable Stage */}
+        <motion.div
+          animate={isPlaying ? { rotate: 360 } : { rotate: 0 }}
+          transition={
+            isPlaying
+              ? { duration: 18, repeat: Infinity, ease: "linear" }
+              : { duration: 0.5 }
+          }
+          style={{
+            width: "clamp(190px, 32vw, 260px)",
+            height: "clamp(190px, 32vw, 260px)",
+            borderRadius: "50%",
+            padding: 8,
+            background: "var(--brand-gradient)",
+            backgroundSize: "250% 250%",
+            boxShadow: "var(--shadow-hover)",
+            position: "relative",
+          }}
+        >
+          <img
+            src={currentSong.coverImage || "/music-player.png"}
+            alt={currentSong.title}
+            onError={(e) => {
+              e.target.src = "/music-player.png";
+            }}
+            style={{
+              width: "100%",
+              height: "100%",
+              borderRadius: "50%",
+              objectFit: "cover",
+              display: "block",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: 34,
+              height: 34,
+              borderRadius: "50%",
+              background: "var(--bg-card)",
+              border: "3px solid var(--accent-primary)",
+            }}
+          />
+        </motion.div>
+
+        {/* Track Title & Artist */}
+        <div>
+          <h1
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "clamp(1.6rem, 3.5vw, 2.4rem)",
+              fontWeight: 800,
+              marginBottom: 6,
+            }}
+          >
+            {currentSong.title}
+          </h1>
+          <p style={{ fontSize: "1rem", color: "var(--text-secondary)" }}>
+            {currentSong.artist || "Unknown Artist"}
+          </p>
+        </div>
+
+        {/* 28-Bar GSAP Reactive Spectrum */}
+        <div
+          ref={barsRef}
+          style={{
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+            gap: 5,
+            height: 84,
+            width: "100%",
+            maxWidth: 580,
+            padding: "0 12px",
+          }}
+        >
+          {[...Array(28)].map((_, i) => (
+            <span
+              key={i}
+              className="stage-bar rainbow-bar"
+              style={{
+                flex: 1,
+                height: "100%",
+                borderRadius: 99,
+                transformOrigin: "bottom",
+                transform: "scaleY(0.18)",
+                display: "inline-block",
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Stage Transport */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <button onClick={prevSong} className="btn-secondary">
+            Prev
+          </button>
+          <button onClick={() => setIsPlaying(!isPlaying)} className="btn-primary">
+            {isPlaying ? "Pause Stage" : "Play Stage"}
+          </button>
+          <button onClick={nextSong} className="btn-secondary">
+            Next
+          </button>
+        </div>
+      </motion.div>
     </div>
   );
 }

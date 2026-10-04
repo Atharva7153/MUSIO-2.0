@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePlayer } from "../context/PlayerContext";
-import "./PlaylistsPage.css";
+import { motion } from "framer-motion";
 
 export default function PlaylistsPage() {
   const [playlists, setPlaylists] = useState([]);
@@ -14,160 +14,238 @@ export default function PlaylistsPage() {
     const fetchPlaylists = async () => {
       try {
         const res = await fetch("/api/playlists");
-        const contentType = res.headers.get('content-type') || '';
-        if (!contentType.includes('application/json')) {
-          const text = await res.text().catch(() => '<unreadable body>');
-          throw new Error(`Expected JSON but received non-JSON response (status ${res.status}): ${text.slice(0,200)}`);
-        }
+        const ct = res.headers.get("content-type") || "";
+        if (!ct.includes("application/json")) throw new Error("Non-JSON");
         const data = await res.json();
         setPlaylists(data.playlists || []);
-        setIsLoading(false);
-      } catch (error) {
-        console.error("Error fetching playlists:", error);
+      } catch (err) {
+        console.error("Failed to fetch playlists:", err);
+      } finally {
         setIsLoading(false);
       }
     };
-
     fetchPlaylists();
   }, []);
 
-  const filteredPlaylists = playlists.filter(playlist =>
-    playlist.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filtered = playlists.filter((p) =>
+    p.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handlePlayPlaylist = (playlist) => {
-    if (playlist.songs.length > 0) {
-      playSong(playlist.songs, 0);
-    }
-  };
-
   return (
-    <div className="playlists-page page-content">
-      <div className="playlists-container">
-        {/* Header */}
-        <div className="page-header">
-          <div className="header-content">
-            <h1 className="page-title">Your Playlists</h1>
-            <p className="page-subtitle">
-              Organize and enjoy your music collection
-            </p>
+    <div className="page-content" style={{ maxWidth: 1080, margin: "0 auto", padding: "110px 20px 72px" }}>
+      {/* Header */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-end",
+          justifyContent: "space-between",
+          gap: 16,
+          flexWrap: "wrap",
+          marginBottom: 28,
+        }}
+      >
+        <div>
+          <div
+            style={{
+              fontSize: "0.75rem",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              color: "var(--accent-primary)",
+              marginBottom: 6,
+              fontFamily: "var(--font-display)",
+            }}
+          >
+            Curated Collections
           </div>
-          <Link href="/upload" className="create-playlist-btn">
+          <h1
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "clamp(1.9rem, 4vw, 2.75rem)",
+              fontWeight: 800,
+              letterSpacing: "-0.03em",
+            }}
+          >
+            Your <span className="gradient-text">Playlists</span>
+          </h1>
+        </div>
+
+        <Link href="/upload" className="btn-primary">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+          </svg>
+          Create Playlist
+        </Link>
+      </div>
+
+      {/* Filter Input */}
+      <div style={{ maxWidth: 380, marginBottom: 32 }}>
+        <input
+          type="text"
+          placeholder="Filter playlists by name..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="theme-input"
+        />
+      </div>
+
+      {/* Playlists Grid */}
+      {isLoading ? (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+            gap: 20,
+          }}
+        >
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="surface-card" style={{ padding: 14 }}>
+              <div className="skeleton" style={{ aspectRatio: "1/1", marginBottom: 14 }} />
+              <div className="skeleton" style={{ height: 16, width: "70%", marginBottom: 8 }} />
+              <div className="skeleton" style={{ height: 12, width: "40%" }} />
+            </div>
+          ))}
+        </div>
+      ) : filtered.length > 0 ? (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+            gap: 20,
+          }}
+        >
+          {filtered.map((pl, index) => (
+            <motion.div
+              key={pl._id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, delay: index * 0.05 }}
+              whileHover={{ y: -5 }}
+              className="surface-card"
+              style={{
+                padding: 14,
+                display: "flex",
+                flexDirection: "column",
+                gap: 14,
+              }}
+            >
+              <Link
+                href={`/playlist/${pl._id}`}
+                style={{
+                  position: "relative",
+                  aspectRatio: "1/1",
+                  borderRadius: 12,
+                  overflow: "hidden",
+                  display: "block",
+                  background: "var(--bg-subtle)",
+                }}
+              >
+                <img
+                  src={pl.coverImage || "/playlist.png"}
+                  alt={pl.name}
+                  onError={(e) => {
+                    e.target.src = "/playlist.png";
+                  }}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    display: "block",
+                  }}
+                />
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (pl.songs?.length > 0) playSong(pl.songs, 0);
+                  }}
+                  disabled={!pl.songs?.length}
+                  aria-label={`Play ${pl.name}`}
+                  className="rainbow-bar"
+                  style={{
+                    position: "absolute",
+                    bottom: 10,
+                    right: 10,
+                    width: 42,
+                    height: 42,
+                    borderRadius: "50%",
+                    border: "none",
+                    color: "#FFFFFF",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: pl.songs?.length ? "pointer" : "not-allowed",
+                    opacity: pl.songs?.length ? 1 : 0.4,
+                    boxShadow: "0 6px 20px rgba(0,0,0,0.35)",
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </button>
+              </Link>
+
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <div style={{ minWidth: 0 }}>
+                  <Link
+                    href={`/playlist/${pl._id}`}
+                    style={{
+                      fontFamily: "var(--font-display)",
+                      fontSize: "1rem",
+                      fontWeight: 700,
+                      color: "var(--text-primary)",
+                      textDecoration: "none",
+                      display: "block",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {pl.name}
+                  </Link>
+                  <span style={{ fontSize: "0.78rem", color: "var(--text-secondary)" }}>
+                    {pl.songs?.length || 0} {pl.songs?.length === 1 ? "track" : "tracks"}
+                  </span>
+                </div>
+
+                <Link
+                  href={`/playlist/${pl._id}`}
+                  style={{
+                    fontSize: "0.78rem",
+                    fontWeight: 600,
+                    fontFamily: "var(--font-display)",
+                    color: "var(--accent-primary)",
+                    textDecoration: "none",
+                    padding: "6px 10px",
+                    borderRadius: 99,
+                    background: "var(--accent-soft)",
+                    flexShrink: 0,
+                  }}
+                >
+                  Open →
+                </Link>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      ) : (
+        <div className="empty-state">
+          <div className="empty-icon">
             <svg viewBox="0 0 24 24">
-              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z" />
             </svg>
+          </div>
+          <h3>{searchQuery ? "No matching playlists" : "No playlists created yet"}</h3>
+          <p>
+            {searchQuery
+              ? `Nothing matched "${searchQuery}". Try another search.`
+              : "Organize your favorite tracks into custom playlists."}
+          </p>
+          <Link href="/upload" className="btn-primary">
             Create Playlist
           </Link>
         </div>
-
-        {/* Search */}
-        <div className="search-section">
-          <div className="search-container">
-            <svg className="search-icon" viewBox="0 0 24 24">
-              <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-            </svg>
-            <input
-              type="text"
-              placeholder="Search playlists..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="search-input"
-            />
-          </div>
-        </div>
-
-        {/* Playlists Grid */}
-        {isLoading ? (
-          <div className="loading-grid">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="playlist-card loading">
-                <div className="playlist-image loading-shimmer"></div>
-                <div className="playlist-info">
-                  <div className="playlist-name loading-shimmer"></div>
-                  <div className="playlist-count loading-shimmer"></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : filteredPlaylists.length > 0 ? (
-          <div className="playlists-grid">
-            {filteredPlaylists.map((playlist) => (
-              <div key={playlist._id} className="playlist-card">
-                <div className="playlist-image-container">
-                  <img
-                    src={playlist.coverImage || "/default-playlist.png"}
-                    alt={playlist.name}
-                    className="playlist-image"
-                  />
-                  <div className="playlist-overlay">
-                    <button
-                      className="play-button"
-                      onClick={() => handlePlayPlaylist(playlist)}
-                      disabled={playlist.songs.length === 0}
-                      aria-label="Play playlist"
-                    >
-                      <svg viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z"/>
-                      </svg>
-                    </button>
-                    <Link
-                      href={`/playlist/${playlist._id}`}
-                      className="view-button"
-                      aria-label="View playlist"
-                    >
-                      <svg viewBox="0 0 24 24">
-                        <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                      </svg>
-                    </Link>
-                  </div>
-                </div>
-                <div className="playlist-info">
-                  <h3 className="playlist-name">{playlist.name}</h3>
-                  <p className="playlist-count">
-                    {playlist.songs.length} {playlist.songs.length === 1 ? 'song' : 'songs'}
-                  </p>
-                  <div className="playlist-actions">
-                    <Link
-                      href={`/playlist/${playlist._id}`}
-                      className="action-button primary"
-                    >
-                      View Details
-                    </Link>
-                    <button
-                      className="action-button secondary"
-                      onClick={() => handlePlayPlaylist(playlist)}
-                      disabled={playlist.songs.length === 0}
-                    >
-                      Play All
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="empty-state">
-            <div className="empty-icon">
-              <svg viewBox="0 0 24 24">
-                <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/>
-              </svg>
-            </div>
-            <h3>No playlists found</h3>
-            <p>
-              {searchQuery 
-                ? "No playlists match your search. Try a different term."
-                : "Create your first playlist to organize your music collection."
-              }
-            </p>
-            <Link href="/upload" className="cta-button">
-              <svg viewBox="0 0 24 24">
-                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-              </svg>
-              Create Playlist
-            </Link>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }
