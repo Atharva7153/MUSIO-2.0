@@ -34,6 +34,15 @@ const NAV_LINKS = [
     ),
   },
   {
+    href: "/cinematic",
+    label: "Cinematic",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+        <path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z" />
+      </svg>
+    ),
+  },
+  {
     href: "/upload",
     label: "Upload",
     icon: (
@@ -187,6 +196,11 @@ export default function Navbar() {
     if (closeMobile) setIsMobileMenuOpen(false);
   };
 
+  // In Cinematic Mode, completely hide the global Navbar so there is zero UI
+  if (pathname === "/cinematic") {
+    return null;
+  }
+
   return (
     <>
       <header
@@ -297,11 +311,11 @@ export default function Navbar() {
                     display: "flex",
                     alignItems: "center",
                     gap: 7,
-                    padding: "7px 16px",
+                    padding: "7px 14px",
                     borderRadius: 9999,
                     textDecoration: "none",
                     fontFamily: "var(--font-display)",
-                    fontSize: "0.85rem",
+                    fontSize: "0.84rem",
                     fontWeight: active ? 600 : 500,
                     color: active ? "#FFFFFF" : "var(--text-secondary)",
                     zIndex: 1,
@@ -342,7 +356,7 @@ export default function Navbar() {
                   borderRadius: 9999,
                   padding: "5px 12px",
                   gap: 8,
-                  width: isSearchOpen ? 230 : 170,
+                  width: isSearchOpen ? 220 : 155,
                   transition: "width 0.25s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s ease",
                 }}
               >

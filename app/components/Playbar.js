@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
 import { usePlayer } from "../context/PlayerContext";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -52,6 +54,7 @@ function PlaybarReactiveSpectrum() {
 }
 
 export default function Playbar() {
+  const pathname = usePathname();
   const {
     playlist,
     currentIndex,
@@ -80,6 +83,7 @@ export default function Playbar() {
 
   const currentSong = playlist[currentIndex];
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+  const isCinematic = pathname === "/cinematic";
 
   useEffect(() => {
     audioElementRef.current = localAudioRef.current;
@@ -135,461 +139,491 @@ export default function Playbar() {
   if (!currentSong) return null;
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        bottom: 14,
-        left: 0,
-        right: 0,
-        zIndex: 950,
-        display: "flex",
-        justifyContent: "center",
-        padding: "0 16px",
-        pointerEvents: "none",
-      }}
-    >
-      <motion.div
-        initial={{ y: 60, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ type: "spring", damping: 26, stiffness: 260 }}
-        className="glass-pill"
-        style={{
-          pointerEvents: "auto",
-          width: "100%",
-          maxWidth: 1020,
-          borderRadius: 22,
-          padding: "10px 18px 12px",
-          boxShadow: "var(--shadow-playbar)",
-        }}
-      >
-        {/* Top Interactive Scrub Bar */}
+    <>
+      {/* Keep audio element mounted even when Playbar UI is hidden in Cinematic Mode */}
+      <audio
+        ref={localAudioRef}
+        src={currentSong.url}
+        autoPlay
+        loop={isLooping}
+        onEnded={nextSong}
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleLoadedMetadata}
+      />
+
+      {!isCinematic && (
         <div
           style={{
+            position: "fixed",
+            bottom: 14,
+            left: 0,
+            right: 0,
+            zIndex: 950,
             display: "flex",
-            alignItems: "center",
-            gap: 10,
-            marginBottom: 8,
+            justifyContent: "center",
+            padding: "0 16px",
+            pointerEvents: "none",
           }}
         >
-          <span
+          <motion.div
+            initial={{ y: 60, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ type: "spring", damping: 26, stiffness: 260 }}
+            className="glass-pill"
             style={{
-              fontSize: "0.72rem",
-              fontWeight: 600,
-              color: "var(--text-muted)",
-              minWidth: 34,
-              fontVariantNumeric: "tabular-nums",
+              pointerEvents: "auto",
+              width: "100%",
+              maxWidth: 1020,
+              borderRadius: 22,
+              padding: "10px 18px 12px",
+              boxShadow: "var(--shadow-playbar)",
             }}
           >
-            {formatTime(currentTime)}
-          </span>
-
-          <div
-            ref={progressRef}
-            role="progressbar"
-            aria-label="Song progress"
-            aria-valuenow={currentTime}
-            aria-valuemin={0}
-            aria-valuemax={duration}
-            onMouseDown={(e) => {
-              setIsDragging(true);
-              seekTo(e);
-            }}
-            onMouseMove={(e) => {
-              if (isDragging) seekTo(e);
-            }}
-            onMouseUp={(e) => {
-              if (isDragging) {
-                seekTo(e);
-                setIsDragging(false);
-              }
-            }}
-            onMouseLeave={() => setIsDragging(false)}
-            onTouchStart={(e) => {
-              setIsDragging(true);
-              seekTo(e);
-            }}
-            onTouchMove={(e) => {
-              if (isDragging) seekTo(e);
-            }}
-            onTouchEnd={() => setIsDragging(false)}
-            onClick={seekTo}
-            style={{
-              flex: 1,
-              height: 6,
-              borderRadius: 999,
-              background: "var(--bg-subtle)",
-              cursor: "pointer",
-              position: "relative",
-              overflow: "hidden",
-            }}
-          >
+            {/* Top Interactive Scrub Bar */}
             <div
-              className="rainbow-bar"
               style={{
-                position: "absolute",
-                left: 0,
-                top: 0,
-                bottom: 0,
-                width: `${progressPercent}%`,
-                borderRadius: 999,
-                transition: isDragging ? "none" : "width 0.15s linear",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                marginBottom: 8,
               }}
-            />
-          </div>
-
-          <span
-            style={{
-              fontSize: "0.72rem",
-              fontWeight: 600,
-              color: "var(--text-muted)",
-              minWidth: 34,
-              textAlign: "right",
-              fontVariantNumeric: "tabular-nums",
-            }}
-          >
-            {formatTime(duration)}
-          </span>
-        </div>
-
-        {/* Bottom Controls Row */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-          }}
-        >
-          {/* Left: Track Info + 8-bar Live Spectrum */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              flex: 1,
-              minWidth: 0,
-            }}
-          >
-            <motion.img
-              key={currentSong._id}
-              initial={{ scale: 0.88, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              src={currentSong.coverImage || "/music-player.png"}
-              alt={currentSong.title}
-              onError={(e) => {
-                e.target.src = "/music-player.png";
-              }}
-              className={isPlaying ? "music-reactive-pulse" : ""}
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 12,
-                objectFit: "cover",
-                flexShrink: 0,
-                border: "1px solid var(--border-subtle)",
-              }}
-            />
-            <div style={{ minWidth: 0 }}>
-              <div
+            >
+              <span
                 style={{
-                  fontFamily: "var(--font-display)",
-                  fontWeight: 700,
-                  fontSize: "0.9rem",
-                  color: "var(--text-primary)",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
+                  fontSize: "0.72rem",
+                  fontWeight: 600,
+                  color: "var(--text-muted)",
+                  minWidth: 34,
+                  fontVariantNumeric: "tabular-nums",
                 }}
               >
-                {currentSong.title}
-              </div>
+                {formatTime(currentTime)}
+              </span>
+
               <div
+                ref={progressRef}
+                role="progressbar"
+                aria-label="Song progress"
+                aria-valuenow={currentTime}
+                aria-valuemin={0}
+                aria-valuemax={duration}
+                onMouseDown={(e) => {
+                  setIsDragging(true);
+                  seekTo(e);
+                }}
+                onMouseMove={(e) => {
+                  if (isDragging) seekTo(e);
+                }}
+                onMouseUp={(e) => {
+                  if (isDragging) {
+                    seekTo(e);
+                    setIsDragging(false);
+                  }
+                }}
+                onMouseLeave={() => setIsDragging(false)}
+                onTouchStart={(e) => {
+                  setIsDragging(true);
+                  seekTo(e);
+                }}
+                onTouchMove={(e) => {
+                  if (isDragging) seekTo(e);
+                }}
+                onTouchEnd={() => setIsDragging(false)}
+                onClick={seekTo}
                 style={{
-                  fontSize: "0.76rem",
-                  color: "var(--text-secondary)",
-                  whiteSpace: "nowrap",
+                  flex: 1,
+                  height: 6,
+                  borderRadius: 999,
+                  background: "var(--bg-subtle)",
+                  cursor: "pointer",
+                  position: "relative",
                   overflow: "hidden",
-                  textOverflow: "ellipsis",
                 }}
               >
-                {currentSong.artist || "Unknown Artist"}
+                <div
+                  className="rainbow-bar"
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: `${progressPercent}%`,
+                    borderRadius: 999,
+                    transition: isDragging ? "none" : "width 0.15s linear",
+                  }}
+                />
               </div>
-            </div>
-            <PlaybarReactiveSpectrum />
-          </div>
 
-          {/* Center: Transport Controls */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.92 }}
-              onClick={() => setIsShuffling()}
-              aria-label="Toggle shuffle"
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 10,
-                border: "none",
-                background: isShuffling ? "var(--accent-soft)" : "transparent",
-                color: isShuffling ? "var(--accent-primary)" : "var(--text-secondary)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                <polyline points="16,3 21,3 21,8" />
-                <line x1="4" y1="20" x2="21" y2="3" />
-                <polyline points="21,16 21,21 16,21" />
-                <line x1="15" y1="15" x2="21" y2="21" />
-                <line x1="4" y1="4" x2="9" y2="9" />
-              </svg>
-            </motion.button>
-
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.92 }}
-              onClick={prevSong}
-              aria-label="Previous track"
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                border: "none",
-                background: "transparent",
-                color: "var(--text-primary)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-                <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
-              </svg>
-            </motion.button>
-
-            <motion.button
-              whileHover={{ scale: 1.07 }}
-              whileTap={{ scale: 0.93 }}
-              onClick={() => setIsPlaying(!isPlaying)}
-              aria-label={isPlaying ? "Pause" : "Play"}
-              className={`rainbow-bar ${isPlaying ? "music-reactive-pulse" : ""}`}
-              style={{
-                width: 46,
-                height: 46,
-                borderRadius: "50%",
-                border: "none",
-                color: "#FFFFFF",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "var(--glow-accent)",
-              }}
-            >
-              {isPlaying ? (
-                <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              )}
-            </motion.button>
-
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.92 }}
-              onClick={nextSong}
-              aria-label="Next track"
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                border: "none",
-                background: "transparent",
-                color: "var(--text-primary)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-                <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
-              </svg>
-            </motion.button>
-
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.92 }}
-              onClick={() => setIsLooping()}
-              aria-label="Toggle loop"
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 10,
-                border: "none",
-                background: isLooping ? "var(--accent-soft)" : "transparent",
-                color: isLooping ? "var(--accent-primary)" : "var(--text-secondary)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                <path d="M17 1l4 4-4 4" />
-                <path d="M3 11V9a4 4 0 0 1 4-4h14" />
-                <path d="M7 23l-4-4 4-4" />
-                <path d="M21 13v2a4 4 0 0 1-4 4H3" />
-              </svg>
-            </motion.button>
-          </div>
-
-          {/* Right: Volume + Sleep Timer */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "flex-end",
-              gap: 10,
-              flex: 1,
-              minWidth: 0,
-            }}
-          >
-            <div className="hide-mobile" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <svg viewBox="0 0 24 24" fill="var(--text-secondary)" width="16" height="16">
-                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
-              </svg>
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.02}
-                value={volume}
-                onChange={(e) => setVolume(parseFloat(e.target.value))}
-                aria-label="Volume"
+              <span
                 style={{
-                  width: 72,
-                  accentColor: "var(--accent-primary)",
-                  cursor: "pointer",
+                  fontSize: "0.72rem",
+                  fontWeight: 600,
+                  color: "var(--text-muted)",
+                  minWidth: 34,
+                  textAlign: "right",
+                  fontVariantNumeric: "tabular-nums",
                 }}
-              />
+              >
+                {formatTime(duration)}
+              </span>
             </div>
 
-            {/* Sleep Timer Popup */}
-            <div style={{ position: "relative" }}>
-              <motion.button
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.92 }}
-                onClick={() => setShowSleepTimer((v) => !v)}
-                aria-label="Sleep Timer"
+            {/* Bottom Controls Row */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+              }}
+            >
+              {/* Left: Track Info + 8-bar Live Spectrum */}
+              <div
                 style={{
-                  padding: "6px 10px",
-                  borderRadius: 10,
-                  border: "1px solid var(--border-subtle)",
-                  background: sleepTimer ? "var(--accent-soft)" : "var(--bg-subtle)",
-                  color: sleepTimer ? "var(--accent-primary)" : "var(--text-secondary)",
-                  cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
-                  gap: 5,
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
+                  gap: 12,
+                  flex: 1,
+                  minWidth: 0,
                 }}
               >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15">
-                  <circle cx="12" cy="12" r="10" />
-                  <polyline points="12,6 12,12 16,14" />
-                </svg>
-                {sleepTimer && <span>{sleepTimer}m</span>}
-              </motion.button>
-
-              <AnimatePresence>
-                {showSleepTimer && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.96 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.96 }}
-                    className="surface-card"
+                <motion.img
+                  key={currentSong._id}
+                  initial={{ scale: 0.88, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  src={currentSong.coverImage || "/music-player.png"}
+                  alt={currentSong.title}
+                  onError={(e) => {
+                    e.target.src = "/music-player.png";
+                  }}
+                  className={isPlaying ? "music-reactive-pulse" : ""}
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    objectFit: "cover",
+                    flexShrink: 0,
+                    border: "1px solid var(--border-subtle)",
+                  }}
+                />
+                <div style={{ minWidth: 0 }}>
+                  <div
                     style={{
-                      position: "absolute",
-                      bottom: "calc(100% + 12px)",
-                      right: 0,
-                      padding: 16,
-                      minWidth: 220,
-                      background: "var(--bg-elevated)",
-                      zIndex: 1000,
+                      fontFamily: "var(--font-display)",
+                      fontWeight: 700,
+                      fontSize: "0.9rem",
+                      color: "var(--text-primary)",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
                     }}
                   >
-                    <div
-                      style={{
-                        fontFamily: "var(--font-display)",
-                        fontSize: "0.85rem",
-                        fontWeight: 700,
-                        color: "var(--text-primary)",
-                        marginBottom: 10,
-                      }}
-                    >
-                      Sleep Timer
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                      <input
-                        type="number"
-                        min={1}
-                        max={180}
-                        value={timerMinutes}
-                        onChange={(e) => setTimerMinutes(Number(e.target.value))}
-                        className="theme-input"
-                        style={{ width: 72, padding: "6px 10px", textAlign: "center" }}
-                      />
-                      <span style={{ fontSize: "0.82rem", color: "var(--text-secondary)" }}>minutes</span>
-                    </div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button
-                        onClick={() => {
-                          startSleepTimer(timerMinutes);
-                          setShowSleepTimer(false);
-                        }}
-                        className="btn-primary"
-                        style={{ flex: 1, padding: "7px 12px", fontSize: "0.8rem" }}
-                      >
-                        Start
-                      </button>
-                      {sleepTimer && (
-                        <button
-                          onClick={() => {
-                            cancelSleepTimer();
-                            setShowSleepTimer(false);
-                          }}
-                          className="btn-secondary"
-                          style={{ flex: 1, padding: "7px 12px", fontSize: "0.8rem" }}
-                        >
-                          Cancel
-                        </button>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-        </div>
+                    {currentSong.title}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "0.76rem",
+                      color: "var(--text-secondary)",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {currentSong.artist || "Unknown Artist"}
+                  </div>
+                </div>
+                <PlaybarReactiveSpectrum />
+              </div>
 
-        <audio
-          ref={localAudioRef}
-          src={currentSong.url}
-          autoPlay
-          loop={isLooping}
-          onEnded={nextSong}
-          onTimeUpdate={handleTimeUpdate}
-          onLoadedMetadata={handleLoadedMetadata}
-        />
-      </motion.div>
-    </div>
+              {/* Center: Transport Controls */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.92 }}
+                  onClick={() => setIsShuffling()}
+                  aria-label="Toggle shuffle"
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 10,
+                    border: "none",
+                    background: isShuffling ? "var(--accent-soft)" : "transparent",
+                    color: isShuffling ? "var(--accent-primary)" : "var(--text-secondary)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                    <polyline points="16,3 21,3 21,8" />
+                    <line x1="4" y1="20" x2="21" y2="3" />
+                    <polyline points="21,16 21,21 16,21" />
+                    <line x1="15" y1="15" x2="21" y2="21" />
+                    <line x1="4" y1="4" x2="9" y2="9" />
+                  </svg>
+                </motion.button>
+
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.92 }}
+                  onClick={prevSong}
+                  aria-label="Previous track"
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    border: "none",
+                    background: "transparent",
+                    color: "var(--text-primary)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                    <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
+                  </svg>
+                </motion.button>
+
+                <motion.button
+                  whileHover={{ scale: 1.07 }}
+                  whileTap={{ scale: 0.93 }}
+                  onClick={() => setIsPlaying(!isPlaying)}
+                  aria-label={isPlaying ? "Pause" : "Play"}
+                  className={`rainbow-bar ${isPlaying ? "music-reactive-pulse" : ""}`}
+                  style={{
+                    width: 46,
+                    height: 46,
+                    borderRadius: "50%",
+                    border: "none",
+                    color: "#FFFFFF",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxShadow: "var(--glow-accent)",
+                  }}
+                >
+                  {isPlaying ? (
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  )}
+                </motion.button>
+
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.92 }}
+                  onClick={nextSong}
+                  aria-label="Next track"
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    border: "none",
+                    background: "transparent",
+                    color: "var(--text-primary)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                    <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+                  </svg>
+                </motion.button>
+
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.92 }}
+                  onClick={() => setIsLooping()}
+                  aria-label="Toggle loop"
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 10,
+                    border: "none",
+                    background: isLooping ? "var(--accent-soft)" : "transparent",
+                    color: isLooping ? "var(--accent-primary)" : "var(--text-secondary)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                    <path d="M17 1l4 4-4 4" />
+                    <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                    <path d="M7 23l-4-4 4-4" />
+                    <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+                  </svg>
+                </motion.button>
+              </div>
+
+              {/* Right: Volume + Cinematic Launch + Sleep Timer */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "flex-end",
+                  gap: 8,
+                  flex: 1,
+                  minWidth: 0,
+                }}
+              >
+                <div className="hide-mobile" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <svg viewBox="0 0 24 24" fill="var(--text-secondary)" width="16" height="16">
+                    <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
+                  </svg>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.02}
+                    value={volume}
+                    onChange={(e) => setVolume(parseFloat(e.target.value))}
+                    aria-label="Volume"
+                    style={{
+                      width: 68,
+                      accentColor: "var(--accent-primary)",
+                      cursor: "pointer",
+                    }}
+                  />
+                </div>
+
+                {/* Quick Launch Cinematic Mode */}
+                <Link
+                  href="/cinematic"
+                  title="Enter Cinematic Mode"
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: 10,
+                    border: "1px solid var(--border-subtle)",
+                    background: "var(--bg-subtle)",
+                    color: "var(--text-secondary)",
+                    textDecoration: "none",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    fontSize: "0.74rem",
+                    fontWeight: 600,
+                    fontFamily: "var(--font-display)",
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                    <path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z" />
+                  </svg>
+                  <span className="hide-mobile">Cinema</span>
+                </Link>
+
+                {/* Sleep Timer Popup */}
+                <div style={{ position: "relative" }}>
+                  <motion.button
+                    whileHover={{ scale: 1.08 }}
+                    whileTap={{ scale: 0.92 }}
+                    onClick={() => setShowSleepTimer((v) => !v)}
+                    aria-label="Sleep Timer"
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 10,
+                      border: "1px solid var(--border-subtle)",
+                      background: sleepTimer ? "var(--accent-soft)" : "var(--bg-subtle)",
+                      color: sleepTimer ? "var(--accent-primary)" : "var(--text-secondary)",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 5,
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                    }}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15">
+                      <circle cx="12" cy="12" r="10" />
+                      <polyline points="12,6 12,12 16,14" />
+                    </svg>
+                    {sleepTimer && <span>{sleepTimer}m</span>}
+                  </motion.button>
+
+                  <AnimatePresence>
+                    {showSleepTimer && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.96 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.96 }}
+                        className="surface-card"
+                        style={{
+                          position: "absolute",
+                          bottom: "calc(100% + 12px)",
+                          right: 0,
+                          padding: 16,
+                          minWidth: 220,
+                          background: "var(--bg-elevated)",
+                          zIndex: 1000,
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontFamily: "var(--font-display)",
+                            fontSize: "0.85rem",
+                            fontWeight: 700,
+                            color: "var(--text-primary)",
+                            marginBottom: 10,
+                          }}
+                        >
+                          Sleep Timer
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                          <input
+                            type="number"
+                            min={1}
+                            max={180}
+                            value={timerMinutes}
+                            onChange={(e) => setTimerMinutes(Number(e.target.value))}
+                            className="theme-input"
+                            style={{ width: 72, padding: "6px 10px", textAlign: "center" }}
+                          />
+                          <span style={{ fontSize: "0.82rem", color: "var(--text-secondary)" }}>minutes</span>
+                        </div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button
+                            onClick={() => {
+                              startSleepTimer(timerMinutes);
+                              setShowSleepTimer(false);
+                            }}
+                            className="btn-primary"
+                            style={{ flex: 1, padding: "7px 12px", fontSize: "0.8rem" }}
+                          >
+                            Start
+                          </button>
+                          {sleepTimer && (
+                            <button
+                              onClick={() => {
+                                cancelSleepTimer();
+                                setShowSleepTimer(false);
+                              }}
+                              className="btn-secondary"
+                              style={{ flex: 1, padding: "7px 12px", fontSize: "0.8rem" }}
+                            >
+                              Cancel
+                            </button>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </>
   );
 }
