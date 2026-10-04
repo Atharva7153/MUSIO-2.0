@@ -44,14 +44,12 @@ function HeroSonicCanvas() {
       phase += isPlaying ? 0.045 + audio.energy * 0.08 : 0.012;
       const cy = height * 0.52;
 
-      // 1. Subtle symmetrical frequency bars across center horizon
       const barCount = 48;
       const totalBarSpan = Math.min(width * 0.82, 760);
       const startX = (width - totalBarSpan) / 2;
       const step = totalBarSpan / barCount;
 
       for (let i = 0; i < barCount; i++) {
-        // Mirror from center outward so bass is in the center behind MUSIO 2.0
         const distFromCenter = Math.abs(i - barCount / 2) / (barCount / 2);
         const binIdx = Math.min(63, Math.floor(distFromCenter * 42));
         const val = audio.bins[binIdx] || 0.04;
@@ -70,7 +68,6 @@ function HeroSonicCanvas() {
         ctx.fill();
       }
 
-      // 2. Flowing harmonic sine ribbons
       const waves = isDark
         ? [
             { color: "rgba(255, 85, 0, 0.42)", amp: 34, freq: 0.008, speed: 1.0 },
@@ -91,7 +88,7 @@ function HeroSonicCanvas() {
         const dynamicAmp = w.amp * (0.22 + audio.bass * 1.45);
         for (let x = 0; x <= width; x += 6) {
           const normX = x / width;
-          const envelope = Math.sin(normX * Math.PI); // Taper at edges
+          const envelope = Math.sin(normX * Math.PI);
           const y =
             cy +
             Math.sin(x * w.freq + phase * w.speed + idx) * dynamicAmp * envelope +
@@ -197,7 +194,6 @@ function SongCard({ song, onPlay, onAddToPlaylist, isCurrent, isPlaying, index }
         gap: 12,
       }}
     >
-      {/* Cover Art */}
       <div
         style={{
           position: "relative",
@@ -223,10 +219,8 @@ function SongCard({ song, onPlay, onAddToPlaylist, isCurrent, isPlaying, index }
           }}
         />
 
-        {/* Live Music-Reactive Mini Bars on Currently Playing Card */}
         <CardReactiveMiniBars active={isCurrent && isPlaying} />
 
-        {/* Play/Pause Badge */}
         <div
           className={`rainbow-bar ${isCurrent && isPlaying ? "music-reactive-pulse" : ""}`}
           style={{
@@ -254,7 +248,6 @@ function SongCard({ song, onPlay, onAddToPlaylist, isCurrent, isPlaying, index }
           )}
         </div>
 
-        {/* Add to Playlist Button */}
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -284,7 +277,6 @@ function SongCard({ song, onPlay, onAddToPlaylist, isCurrent, isPlaying, index }
         </button>
       </div>
 
-      {/* Metadata */}
       <div style={{ minWidth: 0, padding: "0 2px 2px" }}>
         <h3
           style={{
@@ -328,7 +320,6 @@ export default function HomePage() {
   const heroTitleRef = useRef(null);
   const heroGlowRef = useRef(null);
 
-  /* ── GSAP Entrance for Hero Title ── */
   useEffect(() => {
     if (!heroTitleRef.current) return;
     gsap.fromTo(
@@ -338,7 +329,6 @@ export default function HomePage() {
     );
   }, []);
 
-  /* ── Subscribe Hero Title & Halo to Live Music Bass ── */
   useEffect(() => {
     const unsub = subscribeAudio((audio) => {
       if (heroTitleRef.current) {
@@ -355,7 +345,6 @@ export default function HomePage() {
     return unsub;
   }, [subscribeAudio]);
 
-  /* ── Fetch Playlists & Songs ── */
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -400,7 +389,6 @@ export default function HomePage() {
             userSelect: "none",
           }}
         >
-          {/* Reactive Ambient Halo */}
           <div
             ref={heroGlowRef}
             className="rainbow-bar"
@@ -418,10 +406,8 @@ export default function HomePage() {
             }}
           />
 
-          {/* 60fps Live Audio Wave & Spectrum Canvas */}
           <HeroSonicCanvas />
 
-          {/* Monumental Title: ONLY MUSIO 2.0 */}
           <h1
             ref={heroTitleRef}
             style={{
@@ -450,7 +436,7 @@ export default function HomePage() {
         <div style={{ maxWidth: 1080, margin: "0 auto", padding: "8px 20px 64px" }}>
           {/* ── SONGS SECTION ── */}
           <section style={{ marginBottom: 56 }}>
-            <div className="section-header">
+            <div className="section-header" style={{ flexWrap: "wrap", gap: 12 }}>
               <h2 className="section-title">
                 <span
                   className="rainbow-bar music-reactive-pulse"
@@ -459,15 +445,21 @@ export default function HomePage() {
                 {showAllSongs ? `All Tracks (${allSongs.length})` : "Recently Added"}
               </h2>
 
-              {allSongs.length > 8 && (
-                <button
-                  onClick={() => setShowAllSongs((v) => !v)}
-                  className="view-all-link"
-                  style={{ border: "none", cursor: "pointer" }}
-                >
-                  {showAllSongs ? "Show Less" : `View All (${allSongs.length})`}
-                </button>
-              )}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Link href="/constellation" className="view-all-link">
+                  ✦ Fullscreen Galaxy →
+                </Link>
+
+                {allSongs.length > 8 && (
+                  <button
+                    onClick={() => setShowAllSongs((v) => !v)}
+                    className="view-all-link"
+                    style={{ border: "none", cursor: "pointer" }}
+                  >
+                    {showAllSongs ? "Show Less" : `View All (${allSongs.length})`}
+                  </button>
+                )}
+              </div>
             </div>
 
             {isLoading ? (

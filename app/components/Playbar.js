@@ -81,9 +81,35 @@ export default function Playbar() {
   const [showSleepTimer, setShowSleepTimer] = useState(false);
   const [volume, setVolume] = useState(1);
 
+  /* ── Time-Capsule / Memory Stamp States ── */
+  const [allStamps, setAllStamps] = useState({});
+  const [showStampPopover, setShowStampPopover] = useState(false);
+  const [stampNote, setStampNote] = useState("");
+  const [capturedTime, setCapturedTime] = useState(0);
+  const [activeWhisper, setActiveWhisper] = useState(null);
+  const lastTriggeredStampRef = useRef(null);
+
   const currentSong = playlist[currentIndex];
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
-  const isCinematic = pathname === "/cinematic";
+  const isCinematic = pathname === "/cinematic" || pathname === "/constellation";
+
+  const songIdKey = currentSong?._id || currentSong?.title || "unknown";
+  const currentSongStamps = allStamps[songIdKey] || [];
+
+  /* ── Load saved Memory Stamps from localStorage ── */
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("musio-memory-stamps");
+      if (saved) setAllStamps(JSON.parse(saved));
+    } catch {}
+  }, []);
+
+  const saveStampsToStorage = (updated) => {
+    setAllStamps(updated);
+    try {
+      localStorage.setItem("musio-memory-stamps", JSON.stringify(updated));
+    } catch {}
+  };
 
   useEffect(() => {
     audioElementRef.current = localAudioRef.current;
@@ -105,9 +131,37 @@ export default function Playbar() {
     }
   }, [volume]);
 
+  const formatTime = (secs) => {
+    if (isNaN(secs) || !isFinite(secs) || secs < 0) return "0:00";
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60)
+      .toString()
+      .padStart(2, "0");
+    return `${m}:${s}`;
+  };
+
+  const triggerWhisper = (stamp) => {
+    setActiveWhisper(stamp);
+    setTimeout(() => {
+      setActiveWhisper((prev) => (prev?.id === stamp.id ? null : prev));
+    }, 3800);
+  };
+
   const handleTimeUpdate = () => {
     if (!isDragging && localAudioRef.current) {
-      setCurrentTime(localAudioRef.current.currentTime);
+      const nowSec = localAudioRef.current.currentTime;
+      setCurrentTime(nowSec);
+
+      // Check if playback just crossed any Memory Stamp
+      if (currentSongStamps.length > 0) {
+        const hit = currentSongStamps.find(
+          (st) => Math.abs(nowSec - st.time) < 0.65
+        );
+        if (hit && lastTriggeredStampRef.current !== `${hit.id}-${Math.floor(nowSec)}`) {
+          lastTriggeredStampRef.current = `${hit.id}-${Math.floor(nowSec)}`;
+          triggerWhisper(hit);
+        }
+      }
     }
   };
 
@@ -127,20 +181,45 @@ export default function Playbar() {
     if (localAudioRef.current) localAudioRef.current.currentTime = newTime;
   };
 
-  const formatTime = (secs) => {
-    if (isNaN(secs) || !isFinite(secs) || secs < 0) return "0:00";
-    const m = Math.floor(secs / 60);
-    const s = Math.floor(secs % 60)
-      .toString()
-      .padStart(2, "0");
-    return `${m}:${s}`;
+  const jumpToStamp = (stamp) => {
+    setCurrentTime(stamp.time);
+    if (localAudioRef.current) {
+      localAudioRef.current.currentTime = stamp.time;
+    }
+    setIsPlaying(true);
+    triggerWhisper(stamp);
+  };
+
+  const handleAddStamp = (e) => {
+    e.preventDefault();
+    if (!stampNote.trim()) return;
+    const newStamp = {
+      id: `st-${Date.now()}`,
+      time: capturedTime,
+      note: stampNote.trim(),
+      createdAt: new Date().toLocaleDateString(),
+    };
+    const updatedList = [...currentSongStamps, newStamp].sort((a, b) => a.time - b.time);
+    saveStampsToStorage({
+      ...allStamps,
+      [songIdKey]: updatedList,
+    });
+    setStampNote("");
+    triggerWhisper(newStamp);
+  };
+
+  const handleDeleteStamp = (stampId) => {
+    const updatedList = currentSongStamps.filter((s) => s.id !== stampId);
+    saveStampsToStorage({
+      ...allStamps,
+      [songIdKey]: updatedList,
+    });
   };
 
   if (!currentSong) return null;
 
   return (
     <>
-      {/* Keep audio element mounted even when Playbar UI is hidden in Cinematic Mode */}
       <audio
         ref={localAudioRef}
         src={currentSong.url}
@@ -150,6 +229,72 @@ export default function Playbar() {
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
       />
+
+      {/* ── FLOATING KINETIC MEMORY WHISPER OVERLAY ── */}
+      <AnimatePresence>
+        {activeWhisper && !isCinematic && (
+          <motion.div
+            key={activeWhisper.id}
+            initial={{ opacity: 0, y: 24, scale: 0.92 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -16, scale: 0.94 }}
+            transition={{ type: "spring", stiffness: 300, damping: 24 }}
+            style={{
+              position: "fixed",
+              bottom: 122,
+              left: 16,
+              right: 16,
+              zIndex: 960,
+              display: "flex",
+              justifyContent: "center",
+              pointerEvents: "none",
+            }}
+          >
+            <div
+              className="glass-pill"
+              style={{
+                padding: "10px 20px",
+                borderRadius: 999,
+                background: "rgba(12, 12, 18, 0.9)",
+                border: "1px solid var(--accent-primary)",
+                color: "#FFFFFF",
+                boxShadow: "0 12px 34px rgba(255, 85, 0, 0.3)",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                maxWidth: "min(92vw, 520px)",
+              }}
+            >
+              <span
+                className="rainbow-bar"
+                style={{
+                  padding: "3px 8px",
+                  borderRadius: 999,
+                  fontSize: "0.72rem",
+                  fontWeight: 700,
+                  fontFamily: "var(--font-display)",
+                  color: "#FFFFFF",
+                  flexShrink: 0,
+                }}
+              >
+                ◆ {formatTime(activeWhisper.time)}
+              </span>
+              <span
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: "0.88rem",
+                  fontWeight: 600,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                &ldquo;{activeWhisper.note}&rdquo;
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {!isCinematic && (
         <div
@@ -179,7 +324,7 @@ export default function Playbar() {
               boxShadow: "var(--shadow-playbar)",
             }}
           >
-            {/* Top Interactive Scrub Bar */}
+            {/* Top Interactive Scrub Bar + Memory Stamp Pins */}
             <div
               style={{
                 display: "flex",
@@ -232,12 +377,11 @@ export default function Playbar() {
                 onClick={seekTo}
                 style={{
                   flex: 1,
-                  height: 6,
+                  height: 7,
                   borderRadius: 999,
                   background: "var(--bg-subtle)",
                   cursor: "pointer",
                   position: "relative",
-                  overflow: "hidden",
                 }}
               >
                 <div
@@ -252,6 +396,38 @@ export default function Playbar() {
                     transition: isDragging ? "none" : "width 0.15s linear",
                   }}
                 />
+
+                {/* Time-Capsule Memory Stamp Diamond Pins on Timeline */}
+                {duration > 0 &&
+                  currentSongStamps.map((stamp) => {
+                    const leftPct = Math.min(99, Math.max(1, (stamp.time / duration) * 100));
+                    return (
+                      <button
+                        key={stamp.id}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          jumpToStamp(stamp);
+                        }}
+                        title={`${formatTime(stamp.time)} — ${stamp.note}`}
+                        style={{
+                          position: "absolute",
+                          left: `${leftPct}%`,
+                          top: "50%",
+                          transform: "translate(-50%, -50%) rotate(45deg)",
+                          width: 10,
+                          height: 10,
+                          background: "#FFD166",
+                          border: "1.5px solid #FF5500",
+                          borderRadius: 2,
+                          cursor: "pointer",
+                          zIndex: 4,
+                          boxShadow: "0 0 8px rgba(255, 85, 0, 0.8)",
+                          padding: 0,
+                        }}
+                      />
+                    );
+                  })}
               </div>
 
               <span
@@ -274,7 +450,7 @@ export default function Playbar() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                gap: 12,
+                gap: 10,
               }}
             >
               {/* Left: Track Info + 8-bar Live Spectrum */}
@@ -282,7 +458,7 @@ export default function Playbar() {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 12,
+                  gap: 10,
                   flex: 1,
                   minWidth: 0,
                 }}
@@ -298,8 +474,8 @@ export default function Playbar() {
                   }}
                   className={isPlaying ? "music-reactive-pulse" : ""}
                   style={{
-                    width: 44,
-                    height: 44,
+                    width: 42,
+                    height: 42,
                     borderRadius: 12,
                     objectFit: "cover",
                     flexShrink: 0,
@@ -311,7 +487,7 @@ export default function Playbar() {
                     style={{
                       fontFamily: "var(--font-display)",
                       fontWeight: 700,
-                      fontSize: "0.9rem",
+                      fontSize: "0.88rem",
                       color: "var(--text-primary)",
                       whiteSpace: "nowrap",
                       overflow: "hidden",
@@ -322,7 +498,7 @@ export default function Playbar() {
                   </div>
                   <div
                     style={{
-                      fontSize: "0.76rem",
+                      fontSize: "0.74rem",
                       color: "var(--text-secondary)",
                       whiteSpace: "nowrap",
                       overflow: "hidden",
@@ -332,19 +508,22 @@ export default function Playbar() {
                     {currentSong.artist || "Unknown Artist"}
                   </div>
                 </div>
-                <PlaybarReactiveSpectrum />
+                <div className="hide-mobile">
+                  <PlaybarReactiveSpectrum />
+                </div>
               </div>
 
               {/* Center: Transport Controls */}
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
                 <motion.button
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.92 }}
                   onClick={() => setIsShuffling()}
                   aria-label="Toggle shuffle"
+                  className="hide-mobile"
                   style={{
-                    width: 34,
-                    height: 34,
+                    width: 32,
+                    height: 32,
                     borderRadius: 10,
                     border: "none",
                     background: isShuffling ? "var(--accent-soft)" : "transparent",
@@ -355,7 +534,7 @@ export default function Playbar() {
                     justifyContent: "center",
                   }}
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15">
                     <polyline points="16,3 21,3 21,8" />
                     <line x1="4" y1="20" x2="21" y2="3" />
                     <polyline points="21,16 21,21 16,21" />
@@ -370,8 +549,8 @@ export default function Playbar() {
                   onClick={prevSong}
                   aria-label="Previous track"
                   style={{
-                    width: 36,
-                    height: 36,
+                    width: 34,
+                    height: 34,
                     borderRadius: 10,
                     border: "none",
                     background: "transparent",
@@ -382,7 +561,7 @@ export default function Playbar() {
                     justifyContent: "center",
                   }}
                 >
-                  <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="19" height="19">
                     <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
                   </svg>
                 </motion.button>
@@ -394,8 +573,8 @@ export default function Playbar() {
                   aria-label={isPlaying ? "Pause" : "Play"}
                   className={`rainbow-bar ${isPlaying ? "music-reactive-pulse" : ""}`}
                   style={{
-                    width: 46,
-                    height: 46,
+                    width: 44,
+                    height: 44,
                     borderRadius: "50%",
                     border: "none",
                     color: "#FFFFFF",
@@ -407,11 +586,11 @@ export default function Playbar() {
                   }}
                 >
                   {isPlaying ? (
-                    <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="19" height="19">
                       <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
                     </svg>
                   ) : (
-                    <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="19" height="19">
                       <path d="M8 5v14l11-7z" />
                     </svg>
                   )}
@@ -423,8 +602,8 @@ export default function Playbar() {
                   onClick={nextSong}
                   aria-label="Next track"
                   style={{
-                    width: 36,
-                    height: 36,
+                    width: 34,
+                    height: 34,
                     borderRadius: 10,
                     border: "none",
                     background: "transparent",
@@ -435,7 +614,7 @@ export default function Playbar() {
                     justifyContent: "center",
                   }}
                 >
-                  <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="19" height="19">
                     <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
                   </svg>
                 </motion.button>
@@ -445,9 +624,10 @@ export default function Playbar() {
                   whileTap={{ scale: 0.92 }}
                   onClick={() => setIsLooping()}
                   aria-label="Toggle loop"
+                  className="hide-mobile"
                   style={{
-                    width: 34,
-                    height: 34,
+                    width: 32,
+                    height: 32,
                     borderRadius: 10,
                     border: "none",
                     background: isLooping ? "var(--accent-soft)" : "transparent",
@@ -458,7 +638,7 @@ export default function Playbar() {
                     justifyContent: "center",
                   }}
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15">
                     <path d="M17 1l4 4-4 4" />
                     <path d="M3 11V9a4 4 0 0 1 4-4h14" />
                     <path d="M7 23l-4-4 4-4" />
@@ -467,19 +647,19 @@ export default function Playbar() {
                 </motion.button>
               </div>
 
-              {/* Right: Volume + Cinematic Launch + Sleep Timer */}
+              {/* Right: Memory Stamp + Volume + Cinema + Sleep Timer */}
               <div
                 style={{
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "flex-end",
-                  gap: 8,
+                  gap: 6,
                   flex: 1,
                   minWidth: 0,
                 }}
               >
                 <div className="hide-mobile" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <svg viewBox="0 0 24 24" fill="var(--text-secondary)" width="16" height="16">
+                  <svg viewBox="0 0 24 24" fill="var(--text-secondary)" width="15" height="15">
                     <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
                   </svg>
                   <input
@@ -491,11 +671,187 @@ export default function Playbar() {
                     onChange={(e) => setVolume(parseFloat(e.target.value))}
                     aria-label="Volume"
                     style={{
-                      width: 68,
+                      width: 60,
                       accentColor: "var(--accent-primary)",
                       cursor: "pointer",
                     }}
                   />
+                </div>
+
+                {/* Time-Capsule Memory Stamp Button & Popover (Mobile + Desktop Friendly) */}
+                <div style={{ position: "relative" }}>
+                  <motion.button
+                    whileHover={{ scale: 1.06 }}
+                    whileTap={{ scale: 0.94 }}
+                    onClick={() => {
+                      setCapturedTime(currentTime);
+                      setShowStampPopover((v) => !v);
+                      setShowSleepTimer(false);
+                    }}
+                    title="Pin a Time-Capsule Memory Stamp at this timestamp"
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 10,
+                      border: "1px solid var(--border-subtle)",
+                      background:
+                        currentSongStamps.length > 0 ? "var(--accent-soft)" : "var(--bg-subtle)",
+                      color:
+                        currentSongStamps.length > 0
+                          ? "var(--accent-primary)"
+                          : "var(--text-secondary)",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      fontSize: "0.74rem",
+                      fontWeight: 700,
+                      fontFamily: "var(--font-display)",
+                    }}
+                  >
+                    <span>◆</span>
+                    <span className="hide-mobile">Stamp</span>
+                    {currentSongStamps.length > 0 && <span>({currentSongStamps.length})</span>}
+                  </motion.button>
+
+                  <AnimatePresence>
+                    {showStampPopover && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.96 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.96 }}
+                        className="surface-card"
+                        style={{
+                          position: "absolute",
+                          bottom: "calc(100% + 14px)",
+                          right: 0,
+                          width: "min(300px, calc(100vw - 40px))",
+                          padding: 16,
+                          background: "var(--bg-elevated)",
+                          zIndex: 1100,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            marginBottom: 10,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontFamily: "var(--font-display)",
+                              fontSize: "0.86rem",
+                              fontWeight: 700,
+                              color: "var(--text-primary)",
+                            }}
+                          >
+                            ◆ Pin Memory at {formatTime(capturedTime)}
+                          </span>
+                          <button
+                            onClick={() => setShowStampPopover(false)}
+                            style={{
+                              border: "none",
+                              background: "transparent",
+                              color: "var(--text-muted)",
+                              cursor: "pointer",
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+
+                        <form onSubmit={handleAddStamp} style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+                          <input
+                            type="text"
+                            value={stampNote}
+                            onChange={(e) => setStampNote(e.target.value)}
+                            placeholder="e.g. insane drop here 🔥"
+                            className="theme-input"
+                            style={{ padding: "8px 10px", fontSize: "0.8rem" }}
+                          />
+                          <button
+                            type="submit"
+                            className="btn-primary"
+                            style={{ padding: "8px 12px", fontSize: "0.78rem" }}
+                          >
+                            Pin
+                          </button>
+                        </form>
+
+                        {/* List of existing Memory Stamps for this song */}
+                        {currentSongStamps.length > 0 ? (
+                          <div
+                            style={{
+                              maxHeight: 140,
+                              overflowY: "auto",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 6,
+                            }}
+                          >
+                            {currentSongStamps.map((st) => (
+                              <div
+                                key={st.id}
+                                onClick={() => jumpToStamp(st)}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  gap: 8,
+                                  padding: "6px 8px",
+                                  borderRadius: 8,
+                                  background: "var(--bg-subtle)",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                <div style={{ minWidth: 0, flex: 1 }}>
+                                  <span
+                                    style={{
+                                      fontSize: "0.72rem",
+                                      fontWeight: 700,
+                                      color: "var(--accent-primary)",
+                                      marginRight: 6,
+                                    }}
+                                  >
+                                    {formatTime(st.time)}
+                                  </span>
+                                  <span
+                                    style={{
+                                      fontSize: "0.78rem",
+                                      color: "var(--text-primary)",
+                                    }}
+                                  >
+                                    {st.note}
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteStamp(st.id);
+                                  }}
+                                  style={{
+                                    border: "none",
+                                    background: "transparent",
+                                    color: "var(--text-muted)",
+                                    cursor: "pointer",
+                                    fontSize: "0.75rem",
+                                  }}
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: "0.74rem", color: "var(--text-muted)" }}>
+                            No memory stamps on this track yet.
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
                 {/* Quick Launch Cinematic Mode */}
@@ -528,7 +884,10 @@ export default function Playbar() {
                   <motion.button
                     whileHover={{ scale: 1.08 }}
                     whileTap={{ scale: 0.92 }}
-                    onClick={() => setShowSleepTimer((v) => !v)}
+                    onClick={() => {
+                      setShowSleepTimer((v) => !v);
+                      setShowStampPopover(false);
+                    }}
                     aria-label="Sleep Timer"
                     style={{
                       padding: "6px 10px",

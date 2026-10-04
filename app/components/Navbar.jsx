@@ -16,6 +16,15 @@ const NAV_LINKS = [
     ),
   },
   {
+    href: "/constellation",
+    label: "Galaxy",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+        <path d="M12 2L9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2z" />
+      </svg>
+    ),
+  },
+  {
     href: "/playlists",
     label: "Playlists",
     icon: (
@@ -224,13 +233,13 @@ export default function Navbar() {
           style={{
             pointerEvents: "auto",
             width: "100%",
-            maxWidth: 1080,
+            maxWidth: 1120,
             borderRadius: 9999,
             padding: "8px 12px 8px 18px",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            gap: 12,
+            gap: 10,
           }}
         >
           {/* Brand Logo + Live Music Reactive Meter */}
@@ -293,7 +302,7 @@ export default function Navbar() {
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 4,
+              gap: 3,
               background: "var(--bg-subtle)",
               padding: 4,
               borderRadius: 9999,
@@ -310,12 +319,12 @@ export default function Navbar() {
                     position: "relative",
                     display: "flex",
                     alignItems: "center",
-                    gap: 7,
-                    padding: "7px 14px",
+                    gap: 6,
+                    padding: "7px 13px",
                     borderRadius: 9999,
                     textDecoration: "none",
                     fontFamily: "var(--font-display)",
-                    fontSize: "0.84rem",
+                    fontSize: "0.82rem",
                     fontWeight: active ? 600 : 500,
                     color: active ? "#FFFFFF" : "var(--text-secondary)",
                     zIndex: 1,
@@ -356,7 +365,7 @@ export default function Navbar() {
                   borderRadius: 9999,
                   padding: "5px 12px",
                   gap: 8,
-                  width: isSearchOpen ? 220 : 155,
+                  width: isSearchOpen ? 210 : 145,
                   transition: "width 0.25s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s ease",
                 }}
               >
@@ -378,7 +387,7 @@ export default function Navbar() {
                   value={query}
                   onFocus={() => setIsSearchOpen(true)}
                   onChange={handleSearch}
-                  placeholder="Search tracks..."
+                  placeholder="Search..."
                   style={{
                     width: "100%",
                     border: "none",
